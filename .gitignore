@@ -33,12 +33,11 @@ build/
 .vscode/
 
 ### Application specific ###
-# H2 Database files
-data/
-*.mv.db
-*.trace.db
-*.lock.db
-
-# Uploaded files
-uploads/
+# Note: Database and uploads are included in the repository
+# Uncomment the following lines if you want to exclude them:
+# data/
+# *.mv.db
+# *.trace.db
+# *.lock.db
+# uploads/
 
