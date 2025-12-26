@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Welcome - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+		.container {
+			background: white;
+			border-radius: 10px;
+			box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+			padding: 40px;
+			max-width: 600px;
+			width: 90%;
+			text-align: center;
+		}
+		h1 {
+			color: #333;
+			margin-bottom: 10px;
+			font-size: 2.5em;
+		}
+		.subtitle {
+			color: #666;
+			margin-bottom: 30px;
+			font-size: 1.1em;
+		}
+		.user-info {
+			background: #f5f5f5;
+			border-radius: 5px;
+			padding: 20px;
+			margin: 20px 0;
+		}
+		.user-info p {
+			margin: 5px 0;
+			color: #555;
+		}
+		.username {
+			font-weight: bold;
+			color: #667eea;
+			font-size: 1.2em;
+		}
+		.logout-btn {
+			background: #667eea;
+			color: white;
+			border: none;
+			padding: 12px 30px;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			margin-top: 20px;
+			text-decoration: none;
+			display: inline-block;
+			transition: background 0.3s;
+		}
+		.logout-btn:hover {
+			background: #5568d3;
+		}
+		.login-form {
+			background: #f5f5f5;
+			border-radius: 5px;
+			padding: 30px;
+			margin-top: 20px;
+		}
+		.form-group {
+			margin-bottom: 15px;
+			text-align: left;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			color: #333;
+			font-weight: 500;
+		}
+		.form-group input {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		.login-btn {
+			background: #667eea;
+			color: white;
+			border: none;
+			padding: 12px 30px;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			width: 100%;
+			margin-top: 10px;
+			transition: background 0.3s;
+		}
+		.login-btn:hover {
+			background: #5568d3;
+		}
+		.credentials {
+			background: #e8f4f8;
+			border-left: 4px solid #667eea;
+			padding: 15px;
+			margin: 20px 0;
+			text-align: left;
+			border-radius: 5px;
+		}
+		.credentials h3 {
+			margin-top: 0;
+			color: #333;
+		}
+		.credentials ul {
+			margin: 10px 0;
+			padding-left: 20px;
+		}
+		.credentials li {
+			margin: 5px 0;
+			color: #555;
+		}
+	</style>
+</head>
+<body>
+	<div class="container">
+		<h1>Welcome to Calculator Collector</h1>
+		<p class="subtitle">Your calculator collection management system</p>
+
+		<div style="margin: 30px 0; text-align: center;">
+			<a href="/calculators" class="logout-btn" style="margin: 10px;">Browse Calculators</a>
+			<a href="/calculators/manufacturers" class="logout-btn" style="margin: 10px;">Browse Manufacturers</a>
+			<sec:authorize="isAuthenticated()">
+				<a href="/calculators/collection" class="logout-btn" style="margin: 10px;">My Collection</a>
+			</sec:authorize>
+			<sec:authorize="hasRole('ADMIN')">
+				<a href="/admin/dashboard" class="logout-btn" style="margin: 10px; background: #dc3545;">Admin Dashboard</a>
+			</sec:authorize>
+		</div>
+
+		<div sec:authorize="isAuthenticated()">
+			<div class="user-info">
+				<p>You are logged in as:</p>
+				<p class="username" sec:authentication="name">User</p>
+			</div>
+			<div style="margin-top: 15px;">
+				<a href="/profile" class="logout-btn" style="margin: 5px;">My Profile</a>
+				<form th:action="@{/logout}" method="post" style="display: inline;">
+					<button type="submit" class="logout-btn" style="margin: 5px;">Logout</button>
+				</form>
+			</div>
+		</div>
+
+		<div sec:authorize="!isAuthenticated()">
+			<div class="credentials">
+				<h3>Test Credentials</h3>
+				<ul>
+					<li><strong>Admin:</strong> username: <code>admin</code>, password: <code>admin</code></li>
+					<li><strong>User:</strong> username: <code>user</code>, password: <code>user</code></li>
+				</ul>
+			</div>
+			<div class="login-form">
+				<form th:action="@{/login}" method="post">
+					<div class="form-group">
+						<label for="username">Username:</label>
+						<input type="text" id="username" name="username" required autofocus>
+					</div>
+					<div class="form-group">
+						<label for="password">Password:</label>
+						<input type="password" id="password" name="password" required>
+					</div>
+					<button type="submit" class="login-btn">Login</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
+

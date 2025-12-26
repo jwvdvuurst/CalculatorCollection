@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>My Profile - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 800px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			margin-bottom: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 500;
+			color: #333;
+		}
+		.form-group input {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		.info-item {
+			padding: 10px 0;
+			border-bottom: 1px solid #eee;
+		}
+		.info-item:last-child {
+			border-bottom: none;
+		}
+		.info-item strong {
+			display: inline-block;
+			width: 150px;
+			color: #666;
+		}
+		.btn {
+			padding: 10px 20px;
+			background: #667eea;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-success {
+			background: #d4edda;
+			color: #155724;
+			border: 1px solid #c3e6cb;
+		}
+		.alert-error {
+			background: #f8d7da;
+			color: #721c24;
+			border: 1px solid #f5c6cb;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<div>
+			<a href="/welcome">Home</a>
+			<a href="/calculators">Browse Calculators</a>
+			<a href="/calculators/collection">My Collection</a>
+			<a href="/profile">My Profile</a>
+		</div>
+		<div>
+			<span>Hello, <strong sec:authentication="name"></strong>!</span>
+			<a href="/logout" style="margin-left: 15px;">Logout</a>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="section">
+			<h1>My Profile</h1>
+		</div>
+
+		<div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+		<div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
+		<div class="section" th:if="${user}">
+			<h2>Account Information</h2>
+			<div class="info-item">
+				<strong>Username:</strong> <span th:text="${user.username}"></span>
+			</div>
+			<div class="info-item">
+				<strong>Email:</strong> <span th:text="${user.email}"></span>
+			</div>
+			<div class="info-item">
+				<strong>Role:</strong> <span th:text="${user.role}"></span>
+			</div>
+			<div class="info-item">
+				<strong>Account Created:</strong> 
+				<span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+			</div>
+			<div class="info-item" th:if="${user.lastLogin != null}">
+				<strong>Last Login:</strong> 
+				<span th:text="${#temporals.format(user.lastLogin, 'yyyy-MM-dd HH:mm')}"></span>
+			</div>
+		</div>
+
+		<div class="section">
+			<h2>Update Email</h2>
+			<form th:action="@{/profile/update}" method="post">
+				<div class="form-group">
+					<label for="email">Email Address:</label>
+					<input type="email" id="email" name="email" th:value="${user.email}" required>
+				</div>
+				<button type="submit" class="btn">Update Email</button>
+			</form>
+		</div>
+
+		<div class="section">
+			<h2>Change Password</h2>
+			<form th:action="@{/profile/change-password}" method="post">
+				<div class="form-group">
+					<label for="oldPassword">Current Password:</label>
+					<input type="password" id="oldPassword" name="oldPassword" required>
+				</div>
+				<div class="form-group">
+					<label for="newPassword">New Password:</label>
+					<input type="password" id="newPassword" name="newPassword" required minlength="4">
+				</div>
+				<div class="form-group">
+					<label for="confirmPassword">Confirm New Password:</label>
+					<input type="password" id="confirmPassword" name="confirmPassword" required minlength="4">
+				</div>
+				<button type="submit" class="btn">Change Password</button>
+			</form>
+		</div>
+	</div>
+</body>
+</html>
+

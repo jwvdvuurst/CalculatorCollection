@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Share Collection - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 1000px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			margin-bottom: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.calculator-list {
+			display: grid;
+			gap: 10px;
+			margin: 20px 0;
+		}
+		.calculator-item {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+		}
+		.calculator-item input[type="checkbox"] {
+			width: auto;
+		}
+		.form-group {
+			margin-bottom: 15px;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 500;
+		}
+		.form-group input, .form-group textarea {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			box-sizing: border-box;
+		}
+		.btn {
+			padding: 10px 20px;
+			background: #667eea;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.share-item {
+			background: #f5f5f5;
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 10px;
+		}
+		.share-link {
+			background: #e8f4f8;
+			padding: 10px;
+			border-radius: 5px;
+			margin-top: 10px;
+			word-break: break-all;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-success {
+			background: #d4edda;
+			color: #155724;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<a href="/welcome">Home</a>
+		<a href="/calculators/collection">My Collection</a>
+	</div>
+
+	<div class="container">
+		<div class="section">
+			<h1>Share Your Collection</h1>
+			<div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+		</div>
+
+		<div class="section">
+			<h2>Create New Share</h2>
+			<form th:action="@{/calculators/collection/share}" method="post">
+				<div class="form-group">
+					<label>Select Calculators to Share:</label>
+					<div class="calculator-list">
+						<div th:each="item : ${collection}" class="calculator-item">
+							<input type="checkbox" name="calculatorIds" th:value="${item.calculator.id}" id="calc-${item.calculator.id}">
+							<label th:for="'calc-' + ${item.calculator.id}" style="flex: 1; cursor: pointer;">
+								<strong th:text="${item.calculator.model}"></strong> - 
+								<span th:text="${item.calculator.manufacturer.name}"></span>
+							</label>
+						</div>
+					</div>
+					<button type="button" onclick="document.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = true)">Select All</button>
+					<button type="button" onclick="document.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = false)">Deselect All</button>
+				</div>
+				<div class="form-group">
+					<label for="title">Title (optional):</label>
+					<input type="text" id="title" name="title" placeholder="My Calculator Collection">
+				</div>
+				<div class="form-group">
+					<label for="description">Description (optional):</label>
+					<textarea id="description" name="description" rows="3"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="daysValid">Valid for (days, leave empty for no expiration):</label>
+					<input type="number" id="daysValid" name="daysValid" min="1" max="365">
+				</div>
+				<div class="form-group">
+					<label>
+						<input type="checkbox" name="isPublic" value="true">
+						Make this share public (appears in public listings)
+					</label>
+				</div>
+				<button type="submit" class="btn">Create Share</button>
+			</form>
+		</div>
+
+		<div class="section" th:if="${shares != null && !shares.isEmpty()}">
+			<h2>Your Active Shares</h2>
+			<div th:each="share : ${shares}" class="share-item">
+				<h3 th:text="${share.title != null ? share.title : 'Untitled Share'}">Share</h3>
+				<p th:if="${share.description != null}" th:text="${share.description}"></p>
+				<div class="share-link">
+					<strong>Share Link:</strong><br>
+					<a th:href="@{'/calculators/share/' + ${share.shareToken}}" 
+					   th:text="${#httpServletRequest.scheme + '://' + #httpServletRequest.serverName + ':' + #httpServletRequest.serverPort + '/calculators/share/' + share.shareToken}">
+					</a>
+				</div>
+				<p style="font-size: 0.9em; color: #666; margin-top: 10px;">
+					Shared on: <span th:text="${#temporals.format(share.sharedAt, 'yyyy-MM-dd HH:mm')}"></span>
+					<span th:if="${share.expiresAt != null}">
+						| Expires: <span th:text="${#temporals.format(share.expiresAt, 'yyyy-MM-dd HH:mm')}"></span>
+					</span>
+				</p>
+				<form th:action="@{/calculators/share/{token}/delete(token=${share.shareToken})}" method="post" style="margin-top: 10px;">
+					<button type="submit" class="btn" style="background: #dc3545;" onclick="return confirm('Delete this share?')">Delete Share</button>
+				</form>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
+

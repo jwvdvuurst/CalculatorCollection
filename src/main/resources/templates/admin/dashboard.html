@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Admin Dashboard - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 1200px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.dashboard-section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			margin-bottom: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.proposal-item {
+			display: flex;
+			gap: 20px;
+			padding: 20px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			margin-bottom: 15px;
+			background: #f9f9f9;
+		}
+		.proposal-item img {
+			width: 150px;
+			height: 150px;
+			object-fit: cover;
+			border-radius: 5px;
+		}
+		.proposal-item .details {
+			flex: 1;
+		}
+		.proposal-item .actions {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+		.btn {
+			padding: 10px 20px;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 0.9em;
+			text-decoration: none;
+			display: inline-block;
+			text-align: center;
+		}
+		.btn-success {
+			background: #28a745;
+			color: white;
+		}
+		.btn-danger {
+			background: #dc3545;
+			color: white;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-success {
+			background: #d4edda;
+			color: #155724;
+			border: 1px solid #c3e6cb;
+		}
+		.alert-error {
+			background: #f8d7da;
+			color: #721c24;
+			border: 1px solid #f5c6cb;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<div>
+			<a href="/welcome">Home</a>
+			<a href="/admin/dashboard">Admin Dashboard</a>
+			<a href="/admin/calculators">Manage Calculators</a>
+			<a href="/admin/labels">Manage Labels</a>
+			<a href="/admin/users">Manage Users</a>
+		</div>
+		<div>
+			<span>Admin: <strong sec:authentication="name"></strong></span>
+			<a href="/logout" style="margin-left: 15px;">Logout</a>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="dashboard-section">
+			<h1>Admin Dashboard</h1>
+			<p>Review and manage image proposals for the central repository.</p>
+			<div style="margin-top: 20px; display: flex; gap: 10px;">
+				<a th:href="@{/admin/export}" class="btn btn-success">Export All Data</a>
+				<a th:href="@{/admin/proposals}" class="btn btn-success">Review Calculator Proposals</a>
+			</div>
+			<div style="margin-top: 10px;">
+				<form th:action="@{/admin/import}" method="post" enctype="multipart/form-data" style="display: inline;">
+					<input type="file" name="file" accept=".json" required style="display: inline;">
+					<button type="submit" class="btn btn-success">Import Data</button>
+				</form>
+			</div>
+		</div>
+
+		<div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+		<div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
+		<div class="dashboard-section">
+			<h2>Pending Image Proposals</h2>
+			<div th:if="${proposals != null && !proposals.isEmpty()}">
+				<div th:each="proposal : ${proposals.content}" class="proposal-item">
+					<img th:src="@{'/uploads/' + ${proposal.imagePath}}" alt="Proposed image"
+						 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'150\' height=\'150\'%3E%3Crect fill=\'%23ddd\' width=\'150\' height=\'150\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'12\' dy=\'10.5\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\'%3ENo Image%3C/text%3E%3C/svg%3E';">
+					<div class="details">
+						<h3 th:text="${proposal.calculator.model}">Calculator Model</h3>
+						<p><strong>Manufacturer:</strong> <span th:text="${proposal.calculator.manufacturer.name}"></span></p>
+						<p><strong>Uploaded by:</strong> <span th:text="${proposal.uploadedBy}"></span></p>
+						<p><strong>Uploaded:</strong> <span th:text="${#temporals.format(proposal.uploadedAt, 'yyyy-MM-dd HH:mm')}"></span></p>
+					</div>
+					<div class="actions">
+						<form th:action="@{/admin/proposals/images/{id}/approve(id=${proposal.id})}" method="post">
+							<button type="submit" class="btn btn-success">Approve</button>
+						</form>
+						<form th:action="@{/admin/proposals/images/{id}/reject(id=${proposal.id})}" method="post">
+							<button type="submit" class="btn btn-danger" onclick="return confirm('Reject this proposal?')">Reject</button>
+						</form>
+					</div>
+				</div>
+			</div>
+			<div th:if="${proposals == null || proposals.isEmpty()}">
+				<p>No pending proposals.</p>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
+

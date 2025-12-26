@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title th:text="${user.id != null ? 'Edit' : 'New'} + ' User - Admin'">User Form</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 800px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.form-section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 500;
+			color: #333;
+		}
+		.form-group input, .form-group select {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		.checkbox-group {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+		}
+		.checkbox-group input[type="checkbox"] {
+			width: auto;
+		}
+		.btn {
+			padding: 10px 20px;
+			background: #667eea;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.btn:hover {
+			background: #5568d3;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<a href="/admin/dashboard">Admin Dashboard</a>
+		<a href="/admin/users">Manage Users</a>
+	</div>
+
+	<div class="container">
+		<div class="form-section">
+			<h1 th:text="${user.id != null ? 'Edit User' : 'New User'}">User Form</h1>
+			<form th:action="${user.id != null ? '/admin/users/' + user.id : '/admin/users'}" method="post">
+				<div class="form-group" th:if="${user.id == null}">
+					<label for="username">Username *:</label>
+					<input type="text" id="username" name="username" th:value="${user.username}" required>
+				</div>
+				<div class="form-group" th:if="${user.id != null}">
+					<label>Username:</label>
+					<input type="text" th:value="${user.username}" disabled style="background: #f5f5f5;">
+				</div>
+				<div class="form-group" th:if="${user.id == null}">
+					<label for="password">Password *:</label>
+					<input type="password" id="password" name="password" required>
+				</div>
+				<div class="form-group">
+					<label for="email">Email *:</label>
+					<input type="email" id="email" name="email" th:value="${user.email}" required>
+				</div>
+				<div class="form-group">
+					<label for="role">Role *:</label>
+					<select id="role" name="role" required>
+						<option value="USER" th:selected="${user.role == 'USER'}">USER</option>
+						<option value="ADMIN" th:selected="${user.role == 'ADMIN'}">ADMIN</option>
+					</select>
+				</div>
+				<div class="form-group" th:if="${user.id != null}">
+					<div class="checkbox-group">
+						<input type="checkbox" id="enabled" name="enabled" value="true" 
+							   th:checked="${user.enabled != null && user.enabled}">
+						<label for="enabled" style="display: inline; font-weight: normal;">User is enabled</label>
+					</div>
+				</div>
+				<button type="submit" class="btn">Save User</button>
+				<a th:href="@{/admin/users}" class="btn" style="background: #6c757d; margin-left: 10px;">Cancel</a>
+			</form>
+		</div>
+	</div>
+</body>
+</html>
+

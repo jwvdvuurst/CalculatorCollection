@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Calculator Proposals - Admin</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 1200px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			margin-bottom: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.proposal-item {
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			padding: 20px;
+			margin-bottom: 15px;
+			background: #f9f9f9;
+		}
+		.proposal-item h3 {
+			margin: 0 0 10px 0;
+		}
+		.proposal-item .details {
+			margin: 10px 0;
+			color: #666;
+		}
+		.proposal-item .actions {
+			margin-top: 15px;
+			display: flex;
+			gap: 10px;
+		}
+		.btn {
+			padding: 8px 16px;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.btn-success {
+			background: #28a745;
+			color: white;
+		}
+		.btn-danger {
+			background: #dc3545;
+			color: white;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-success {
+			background: #d4edda;
+			color: #155724;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<div>
+			<a href="/admin/dashboard">Admin Dashboard</a>
+			<a href="/admin/proposals">Calculator Proposals</a>
+		</div>
+		<div>
+			<span>Admin: <strong sec:authentication="name"></strong></span>
+			<a href="/logout" style="margin-left: 15px;">Logout</a>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="section">
+			<h1>Calculator Proposals</h1>
+			<p>Review and approve calculator proposals submitted by users.</p>
+		</div>
+
+		<div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+
+		<div class="section" th:if="${proposals != null && !proposals.isEmpty()}">
+			<div th:each="proposal : ${proposals.content}" class="proposal-item">
+				<h3 th:text="${proposal.model}">Model</h3>
+				<div class="details">
+					<p><strong>Manufacturer:</strong> <span th:text="${proposal.manufacturerName}"></span></p>
+					<p th:if="${proposal.soldFrom != null}">
+						<strong>Years:</strong> <span th:text="${proposal.soldFrom}"></span>
+						<span th:if="${proposal.soldTo != null}" th:text="' - ' + ${proposal.soldTo}"></span>
+					</p>
+					<p th:if="${proposal.sourceUrl != null}">
+						<strong>Source:</strong> <a th:href="${proposal.sourceUrl}" target="_blank" th:text="${proposal.sourceUrl}"></a>
+					</p>
+					<p th:if="${proposal.notes != null}">
+						<strong>Notes:</strong> <span th:text="${proposal.notes}"></span>
+					</p>
+					<p style="font-size: 0.9em; color: #999;">
+						Proposed by: <span th:text="${proposal.proposedBy}"></span> on 
+						<span th:text="${#temporals.format(proposal.proposedAt, 'yyyy-MM-dd HH:mm')}"></span>
+					</p>
+				</div>
+				<div class="actions">
+					<form th:action="@{/admin/proposals/{id}/approve(id=${proposal.id})}" method="post">
+						<button type="submit" class="btn btn-success">Approve</button>
+					</form>
+					<form th:action="@{/admin/proposals/{id}/reject(id=${proposal.id})}" method="post">
+						<button type="submit" class="btn btn-danger" onclick="return confirm('Reject this proposal?')">Reject</button>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+</body>
+</html>
+

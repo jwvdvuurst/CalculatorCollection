@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Propose Calculator - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.container {
+			max-width: 800px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.form-section {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 500;
+			color: #333;
+		}
+		.form-group input, .form-group textarea {
+			width: 100%;
+			padding: 10px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		.btn {
+			padding: 10px 20px;
+			background: #667eea;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-info {
+			background: #d1ecf1;
+			color: #0c5460;
+			border: 1px solid #bee5eb;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<div>
+			<a href="/welcome">Home</a>
+			<a href="/calculators">Browse Calculators</a>
+			<sec:authorize="isAuthenticated()">
+				<a href="/calculators/collection">My Collection</a>
+			</sec:authorize>
+		</div>
+		<div>
+			<sec:authorize="isAuthenticated()">
+				<a href="/profile">My Profile</a>
+				<span style="margin-left: 15px;">Hello, <strong sec:authentication="name"></strong>!</span>
+				<a href="/logout" style="margin-left: 15px;">Logout</a>
+			</sec:authorize>
+		</div>
+	</div>
+
+	<div class="container">
+		<div class="form-section">
+			<h1>Propose New Calculator</h1>
+			<div class="alert alert-info">
+				Submit a calculator that's not yet in the database. An administrator will review your proposal.
+			</div>
+			<form th:action="@{/calculators/propose}" method="post">
+				<div class="form-group">
+					<label for="model">Model Name *:</label>
+					<input type="text" id="model" name="model" required>
+				</div>
+				<div class="form-group">
+					<label for="manufacturerName">Manufacturer Name *:</label>
+					<input type="text" id="manufacturerName" name="manufacturerName" required>
+				</div>
+				<div class="form-group">
+					<label for="soldFrom">Sold From (Year):</label>
+					<input type="number" id="soldFrom" name="soldFrom">
+				</div>
+				<div class="form-group">
+					<label for="soldTo">Sold To (Year):</label>
+					<input type="number" id="soldTo" name="soldTo">
+				</div>
+				<div class="form-group">
+					<label for="sourceUrl">Source URL:</label>
+					<input type="url" id="sourceUrl" name="sourceUrl">
+				</div>
+				<div class="form-group">
+					<label for="rawRowText">Raw Row Text:</label>
+					<textarea id="rawRowText" name="rawRowText" rows="3"></textarea>
+				</div>
+				<div class="form-group">
+					<label for="notes">Notes (optional):</label>
+					<textarea id="notes" name="notes" rows="3" placeholder="Any additional information about this calculator..."></textarea>
+				</div>
+				<button type="submit" class="btn">Submit Proposal</button>
+				<a href="/calculators" class="btn" style="background: #6c757d; margin-left: 10px;">Cancel</a>
+			</form>
+		</div>
+	</div>
+</body>
+</html>
+
