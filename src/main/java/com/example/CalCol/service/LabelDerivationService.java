@@ -75,39 +75,44 @@ public class LabelDerivationService {
 			}
 		}
 
-		// Process all calculators
-		List<Calculator> allCalculators = calculatorRepository.findAll();
+		// Process all calculators (eagerly fetch manufacturers to avoid N+1 query problem)
+		List<Calculator> allCalculators = calculatorRepository.findAllWithManufacturer();
 		log.info("Processing {} calculators for label assignment...", allCalculators.size());
 
 		for (Calculator calculator : allCalculators) {
-			Set<String> matchedLabels = new HashSet<>();
-			String searchText = buildSearchText(calculator);
+			try {
+				Set<String> matchedLabels = new HashSet<>();
+				String searchText = buildSearchText(calculator);
 
-			// Check each keyword
-			for (Map.Entry<String, String> entry : LABEL_KEYWORDS.entrySet()) {
-				if (containsKeyword(searchText, entry.getKey())) {
-					matchedLabels.add(entry.getValue());
-				}
-			}
-
-			// Assign matched labels to calculator
-			for (String labelName : matchedLabels) {
-				Optional<Label> labelOpt = labelRepository.findByName(labelName);
-				if (labelOpt.isPresent()) {
-					Label label = labelOpt.get();
-					
-					// Check if already assigned
-					Optional<CalculatorLabel> existing = calculatorLabelRepository
-						.findByCalculatorIdAndLabelId(calculator.getId(), label.getId());
-					
-					if (existing.isEmpty()) {
-						CalculatorLabel calculatorLabel = new CalculatorLabel();
-						calculatorLabel.setCalculator(calculator);
-						calculatorLabel.setLabel(label);
-						calculatorLabelRepository.save(calculatorLabel);
-						labelsAssigned++;
+				// Check each keyword
+				for (Map.Entry<String, String> entry : LABEL_KEYWORDS.entrySet()) {
+					if (containsKeyword(searchText, entry.getKey())) {
+						matchedLabels.add(entry.getValue());
 					}
 				}
+
+				// Assign matched labels to calculator
+				for (String labelName : matchedLabels) {
+					Optional<Label> labelOpt = labelRepository.findByName(labelName);
+					if (labelOpt.isPresent()) {
+						Label label = labelOpt.get();
+						
+						// Check if already assigned
+						Optional<CalculatorLabel> existing = calculatorLabelRepository
+							.findByCalculatorIdAndLabelId(calculator.getId(), label.getId());
+						
+						if (existing.isEmpty()) {
+							CalculatorLabel calculatorLabel = new CalculatorLabel();
+							calculatorLabel.setCalculator(calculator);
+							calculatorLabel.setLabel(label);
+							calculatorLabelRepository.save(calculatorLabel);
+							labelsAssigned++;
+						}
+					}
+				}
+			} catch (Exception e) {
+				log.error("Error processing calculator ID {}: {}", calculator.getId(), e.getMessage(), e);
+				// Continue with next calculator instead of failing completely
 			}
 		}
 
@@ -120,14 +125,22 @@ public class LabelDerivationService {
 	private String buildSearchText(Calculator calculator) {
 		StringBuilder sb = new StringBuilder();
 		
-		if (calculator.getModel() != null) {
-			sb.append(calculator.getModel().toLowerCase()).append(" ");
-		}
-		if (calculator.getManufacturer() != null && calculator.getManufacturer().getName() != null) {
-			sb.append(calculator.getManufacturer().getName().toLowerCase()).append(" ");
-		}
-		if (calculator.getRawRowText() != null) {
-			sb.append(calculator.getRawRowText().toLowerCase()).append(" ");
+		try {
+			if (calculator.getModel() != null) {
+				sb.append(calculator.getModel().toLowerCase()).append(" ");
+			}
+			// Manufacturer should be eagerly loaded, but add null check for safety
+			if (calculator.getManufacturer() != null) {
+				String manufacturerName = calculator.getManufacturer().getName();
+				if (manufacturerName != null) {
+					sb.append(manufacturerName.toLowerCase()).append(" ");
+				}
+			}
+			if (calculator.getRawRowText() != null) {
+				sb.append(calculator.getRawRowText().toLowerCase()).append(" ");
+			}
+		} catch (Exception e) {
+			log.warn("Error building search text for calculator ID {}: {}", calculator.getId(), e.getMessage());
 		}
 		
 		return sb.toString();

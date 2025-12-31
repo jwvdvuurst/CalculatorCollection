@@ -177,14 +177,51 @@
 		<div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
 
 		<div class="calculator-detail" th:if="${calculator}">
-			<h1 th:text="${calculator.model}">Calculator Model</h1>
-			<div class="manufacturer" th:text="${calculator.manufacturer.name}">Manufacturer</div>
-			<div class="details" th:if="${calculator.soldFrom != null}">
-				<strong>Years:</strong> <span th:text="${calculator.soldFrom}"></span>
-				<span th:if="${calculator.soldTo != null}" th:text="' - ' + ${calculator.soldTo}"></span>
-			</div>
-			<div class="details" th:if="${calculator.sourceUrl}">
-				<strong>Source:</strong> <a th:href="${calculator.sourceUrl}" target="_blank" th:text="${calculator.sourceUrl}"></a>
+			<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 20px;">
+				<div style="flex: 1;">
+					<h1 th:text="${calculator.model}">Calculator Model</h1>
+					<div class="manufacturer" th:text="${calculator.manufacturer.name}">Manufacturer</div>
+					<div class="details" th:if="${calculator.soldFrom != null}">
+						<strong>Years:</strong> <span th:text="${calculator.soldFrom}"></span>
+						<span th:if="${calculator.soldTo != null}" th:text="' - ' + ${calculator.soldTo}"></span>
+					</div>
+					<div class="details" th:if="${calculator.sourceUrl}">
+						<strong>Source:</strong> <a th:href="${calculator.sourceUrl}" target="_blank" th:text="${calculator.sourceUrl}"></a>
+					</div>
+					<div class="details" th:if="${calculator.description != null && !calculator.description.isEmpty()}" 
+						 style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #17a2b8;">
+						<strong style="color: #17a2b8;">Enriched Description:</strong>
+						<div style="margin-top: 10px; white-space: pre-wrap; color: #333;" th:utext="${calculator.description}"></div>
+					</div>
+				</div>
+				<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+					<sec:authorize="hasRole('ADMIN')">
+						<a th:href="@{/admin/calculators/edit/{id}(id=${calculator.id})}" 
+						   class="btn" 
+						   style="background: #007bff; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+							✏️ Edit Calculator
+						</a>
+					</sec:authorize>
+					<sec:authorize="isAuthenticated()">
+						<a th:href="@{/calculators/{id}/social-share(id=${calculator.id})}" 
+						   class="btn" 
+						   style="background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">
+							📱 Share to Social Media
+						</a>
+					</sec:authorize>
+					<sec:authorize="hasRole('ADMIN')">
+						<form th:action="@{/calculators/{id}/enrich(id=${calculator.id})}" 
+							  method="post" 
+							  style="display: inline;"
+							  onsubmit="return confirm('This will enrich the calculator data using external APIs. Continue?');">
+							<button type="submit" 
+									class="btn" 
+									style="background: #ffc107; color: #333; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+								✨ Enrich Calculator Data
+							</button>
+						</form>
+					</sec:authorize>
+				</div>
 			</div>
 		</div>
 
@@ -222,6 +259,41 @@
 						</div>
 						<button type="submit" class="btn">Upload Image</button>
 					</form>
+				</div>
+			</sec:authorize>
+			
+			<!-- Display found images from enrichment (admin only) -->
+			<sec:authorize="hasRole('ADMIN')">
+				<div th:if="${foundImages != null && !foundImages.isEmpty()}" style="margin-top: 30px;">
+					<h3>Found Images from Web Search</h3>
+					<p style="color: #666; margin-bottom: 15px;">These images were found during enrichment. Click "Add Image" to download and add them to this calculator.</p>
+					<div class="image-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
+						<div th:each="foundImage : ${foundImages}" class="image-item" 
+							 style="border: 1px solid #ddd; border-radius: 5px; padding: 10px; background: white;">
+							<img th:src="${foundImage.thumbnailUrl != null ? foundImage.thumbnailUrl : foundImage.imageUrl}" 
+								 alt="Found image" 
+								 style="width: 100%; height: 150px; object-fit: cover; border-radius: 3px;"
+								 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'150\'%3E%3Crect fill=\'%23ddd\' width=\'200\' height=\'150\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'12\' dy=\'10.5\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\'%3ENo Image%3C/text%3E%3C/svg%3E';">
+							<div style="margin-top: 8px; font-size: 0.9em;">
+								<div th:if="${foundImage.title}" style="font-weight: bold; margin-bottom: 5px;" th:text="${foundImage.title}"></div>
+								<div th:if="${foundImage.width != null && foundImage.height != null}" 
+									 style="color: #666; font-size: 0.85em;" 
+									 th:text="${foundImage.width + 'x' + foundImage.height}"></div>
+								<div th:if="${foundImage.source}" style="color: #999; font-size: 0.8em;" th:text="'Source: ' + ${foundImage.source}"></div>
+							</div>
+							<form th:action="@{/calculators/{id}/images/from-url(id=${calculator.id})}" 
+								  method="post" 
+								  style="margin-top: 10px;"
+								  onsubmit="return confirm('Download and add this image to the calculator?');">
+								<input type="hidden" name="imageUrl" th:value="${foundImage.imageUrl}">
+								<input type="hidden" name="proposeForRepository" value="false">
+								<button type="submit" class="btn" 
+										style="width: 100%; padding: 8px; background: #28a745; color: white; border: none; border-radius: 3px; cursor: pointer;">
+									➕ Add Image
+								</button>
+							</form>
+						</div>
+					</div>
 				</div>
 			</sec:authorize>
 		</div>

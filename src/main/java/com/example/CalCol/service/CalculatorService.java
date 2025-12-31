@@ -116,5 +116,10 @@ public class CalculatorService {
 	public java.util.List<CalculatorLink> getCalculatorLinks(Long calculatorId) {
 		return calculatorLinkRepository.findByCalculatorId(calculatorId);
 	}
+
+	@Transactional
+	public Calculator saveCalculator(Calculator calculator) {
+		return calculatorRepository.save(calculator);
+	}
 }
 

@@ -20,5 +20,8 @@ public interface CalculatorRepository extends JpaRepository<Calculator, Long> {
 	@Query("SELECT c FROM Calculator c WHERE LOWER(c.model) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
 			"LOWER(c.manufacturer.name) LIKE LOWER(CONCAT('%', :search, '%'))")
 	Page<Calculator> searchByModelOrManufacturer(@Param("search") String search, Pageable pageable);
+
+	@Query("SELECT c FROM Calculator c JOIN FETCH c.manufacturer")
+	java.util.List<Calculator> findAllWithManufacturer();
 }
 

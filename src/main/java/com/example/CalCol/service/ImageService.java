@@ -99,5 +99,27 @@ public class ImageService {
 	public Optional<CalculatorImage> getImageById(Long imageId) {
 		return imageRepository.findById(imageId);
 	}
+
+	/**
+	 * Download and add an image from a URL
+	 */
+	@Transactional
+	public CalculatorImage addImageFromUrl(Long calculatorId, String imageUrl, String username, boolean proposeForRepository) throws IOException {
+		Optional<Calculator> calculatorOpt = calculatorRepository.findById(calculatorId);
+		if (calculatorOpt.isEmpty()) {
+			throw new IllegalArgumentException("Calculator not found");
+		}
+
+		String filename = fileStorageService.downloadImageFromUrl(imageUrl);
+
+		CalculatorImage image = new CalculatorImage();
+		image.setCalculator(calculatorOpt.get());
+		image.setImagePath(filename);
+		image.setUploadedBy(username);
+		image.setIsProposal(proposeForRepository);
+		image.setIsApproved(!proposeForRepository); // If not a proposal, auto-approve for user's own collection
+
+		return imageRepository.save(image);
+	}
 }
 

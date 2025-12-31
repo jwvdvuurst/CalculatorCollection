@@ -35,6 +35,12 @@ public class Calculator {
 	@Column(name = "raw_row_text", length = 2000)
 	private String rawRowText;
 
+	@Column(name = "description", columnDefinition = "TEXT")
+	private String description;
+
+	@Column(name = "enriched_data", columnDefinition = "TEXT")
+	private String enrichedData; // JSON string with structured enriched data
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "manufacturer_id", nullable = false)
 	private Manufacturer manufacturer;

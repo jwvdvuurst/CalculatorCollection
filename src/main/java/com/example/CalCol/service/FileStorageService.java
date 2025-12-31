@@ -66,5 +66,48 @@ public class FileStorageService {
 			return false;
 		}
 	}
+
+	/**
+	 * Download an image from a URL and save it to the upload directory
+	 */
+	public String downloadImageFromUrl(String imageUrl) throws IOException {
+		try {
+			java.net.URL url = new java.net.URL(imageUrl);
+			
+			// Determine file extension from URL or content type
+			String extension = ".jpg"; // default
+			String path = url.getPath().toLowerCase();
+			if (path.endsWith(".png")) {
+				extension = ".png";
+			} else if (path.endsWith(".gif")) {
+				extension = ".gif";
+			} else if (path.endsWith(".webp")) {
+				extension = ".webp";
+			} else if (path.endsWith(".jpeg") || path.endsWith(".jpg")) {
+				extension = ".jpg";
+			}
+			
+			// Generate unique filename
+			String uniqueFilename = UUID.randomUUID().toString() + extension;
+			
+			// Create upload directory if it doesn't exist
+			Path uploadPath = Paths.get(uploadDir);
+			if (!Files.exists(uploadPath)) {
+				Files.createDirectories(uploadPath);
+			}
+			
+			// Download and save file
+			Path filePath = uploadPath.resolve(uniqueFilename);
+			try (java.io.InputStream in = url.openStream()) {
+				Files.copy(in, filePath, StandardCopyOption.REPLACE_EXISTING);
+			}
+			
+			log.info("Image downloaded and saved: {}", filePath);
+			return uniqueFilename;
+		} catch (Exception e) {
+			log.error("Error downloading image from URL: {}", imageUrl, e);
+			throw new IOException("Failed to download image from URL: " + imageUrl, e);
+		}
+	}
 }
 

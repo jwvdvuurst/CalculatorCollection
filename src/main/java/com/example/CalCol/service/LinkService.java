@@ -38,6 +38,16 @@ public class LinkService {
 
 		return linkRepository.save(link);
 	}
+	
+	@Transactional
+	public CalculatorLink addLinkIfNotExists(Long calculatorId, String url, String title, String description, String addedBy) {
+		// Check if link already exists
+		if (linkRepository.existsByCalculatorIdAndUrl(calculatorId, url)) {
+			return null; // Link already exists
+		}
+		
+		return addLink(calculatorId, url, title, description, addedBy);
+	}
 
 	@Transactional
 	public boolean deleteLink(Long linkId, String username) {
