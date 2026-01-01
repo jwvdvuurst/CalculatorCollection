@@ -41,3 +41,6 @@ build/
 # *.lock.db
 # uploads/
 
+# Application properties with API keys
+src/main/resources/application.properties
+
