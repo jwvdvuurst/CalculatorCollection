@@ -48,6 +48,10 @@ public class AdminService {
 		calculator.setSoldTo(calculatorData.getSoldTo());
 		calculator.setSourceUrl(calculatorData.getSourceUrl());
 		calculator.setRawRowText(calculatorData.getRawRowText());
+		
+		// Update enrichment data fields
+		calculator.setDescription(calculatorData.getDescription());
+		calculator.setEnrichedData(calculatorData.getEnrichedData());
 
 		if (calculatorData.getManufacturer() != null && calculatorData.getManufacturer().getId() != null) {
 			Optional<Manufacturer> manufacturerOpt = manufacturerRepository.findById(calculatorData.getManufacturer().getId());

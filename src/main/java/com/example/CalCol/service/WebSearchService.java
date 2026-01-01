@@ -185,6 +185,8 @@ public class WebSearchService {
 				"https://api.bing.microsoft.com/v7.0/images/search?q=%s&count=%d",
 				java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8), maxResults);
 
+			log.debug("Bing image search URL: {}", url);
+
 			Map<String, Object> response = webClient.get()
 				.uri(url)
 				.header("Ocp-Apim-Subscription-Key", bingApiKey)
@@ -192,10 +194,22 @@ public class WebSearchService {
 				.bodyToMono(Map.class)
 				.block();
 
+			if (response == null) {
+				log.warn("Bing image search returned null response");
+				return new ArrayList<>();
+			}
+
+			log.debug("Bing image search response keys: {}", response.keySet());
+
 			List<ImageSearchResult> results = parseBingImageResults(response);
+			log.info("Bing image search returned {} results", results.size());
+			
 			// Record successful request
 			quotaService.recordRequest("bing");
 			return results;
+		} catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+			log.error("Bing image search API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+			return new ArrayList<>();
 		} catch (Exception e) {
 			log.error("Error searching Bing images: {}", e.getMessage(), e);
 			return new ArrayList<>();
@@ -223,6 +237,8 @@ public class WebSearchService {
 				"https://api.search.brave.com/res/v1/images/search?q=%s&count=%d",
 				java.net.URLEncoder.encode(query, java.nio.charset.StandardCharsets.UTF_8), maxResults);
 
+			log.debug("Brave image search URL: {}", url);
+
 			Map<String, Object> response = webClient.get()
 				.uri(url)
 				.header("Accept", "application/json")
@@ -232,10 +248,22 @@ public class WebSearchService {
 				.bodyToMono(Map.class)
 				.block();
 
+			if (response == null) {
+				log.warn("Brave image search returned null response");
+				return new ArrayList<>();
+			}
+
+			log.debug("Brave image search response keys: {}", response.keySet());
+
 			List<ImageSearchResult> results = parseBraveImageResults(response);
+			log.info("Brave image search returned {} results", results.size());
+			
 			// Record successful request
 			quotaService.recordRequest("brave");
 			return results;
+		} catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+			log.error("Brave image search API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+			return new ArrayList<>();
 		} catch (Exception e) {
 			log.error("Error searching Brave images: {}", e.getMessage(), e);
 			return new ArrayList<>();
@@ -593,6 +621,8 @@ public class WebSearchService {
 			return results;
 		}
 		
+		log.debug("Google image search response keys: {}", response.keySet());
+		
 		// Check for errors
 		if (response.containsKey("error")) {
 			@SuppressWarnings("unchecked")
@@ -602,7 +632,8 @@ public class WebSearchService {
 		}
 		
 		if (!response.containsKey("items")) {
-			log.debug("Google image search response has no 'items' key. Available keys: {}", response.keySet());
+			log.warn("Google image search response has no 'items' key. Available keys: {}. Response: {}", 
+				response.keySet(), response);
 			return results;
 		}
 
@@ -618,7 +649,20 @@ public class WebSearchService {
 		for (Map<String, Object> item : items) {
 			try {
 				ImageSearchResult result = new ImageSearchResult();
-				result.setImageUrl((String) item.get("link"));
+				
+				// Google Custom Search API for images returns:
+				// - link: direct image URL
+				// - title: image title
+				// - image.thumbnailLink: thumbnail URL
+				// - image.contextLink: source page URL
+				// - image.width/height: dimensions
+				
+				String imageUrl = (String) item.get("link");
+				if (imageUrl == null || imageUrl.trim().isEmpty()) {
+					log.debug("Skipping Google image result with no link");
+					continue;
+				}
+				result.setImageUrl(imageUrl);
 				result.setTitle((String) item.get("title"));
 				
 				@SuppressWarnings("unchecked")
@@ -637,89 +681,276 @@ public class WebSearchService {
 					}
 				} else {
 					// Fallback: use link as thumbnail if image object is missing
-					result.setThumbnailUrl((String) item.get("link"));
+					result.setThumbnailUrl(imageUrl);
 					result.setSourceUrl((String) item.get("displayLink"));
 				}
 				
 				result.setSource("Google");
 				results.add(result);
 			} catch (Exception e) {
-				log.warn("Error parsing Google image search result: {}", e.getMessage());
+				log.warn("Error parsing Google image search result: {}", e.getMessage(), e);
 			}
 		}
 
-		log.debug("Successfully parsed {} Google image search results", results.size());
+		log.info("Successfully parsed {} Google image search results", results.size());
 		return results;
 	}
 
 	private List<ImageSearchResult> parseBingImageResults(Map<String, Object> response) {
 		List<ImageSearchResult> results = new ArrayList<>();
-		if (response == null || !response.containsKey("value")) {
+		if (response == null) {
+			log.warn("Bing image search response is null");
+			return results;
+		}
+		
+		log.debug("Bing image search response keys: {}", response.keySet());
+		
+		if (!response.containsKey("value")) {
+			log.warn("Bing image search response has no 'value' key. Available keys: {}. Response: {}", 
+				response.keySet(), response);
 			return results;
 		}
 
 		@SuppressWarnings("unchecked")
 		List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("value");
-		if (items == null) {
+		if (items == null || items.isEmpty()) {
+			log.debug("Bing image search returned empty items list");
 			return results;
 		}
 
+		log.debug("Parsing {} Bing image search results", items.size());
+
 		for (Map<String, Object> item : items) {
-			ImageSearchResult result = new ImageSearchResult();
-			result.setImageUrl((String) item.get("contentUrl"));
-			result.setThumbnailUrl((String) item.get("thumbnailUrl"));
-			result.setTitle((String) item.get("name"));
-			result.setSourceUrl((String) item.get("hostPageUrl"));
-			
-			Object widthObj = item.get("width");
-			Object heightObj = item.get("height");
-			if (widthObj instanceof Number) {
-				result.setWidth(((Number) widthObj).intValue());
+			try {
+				ImageSearchResult result = new ImageSearchResult();
+				
+				// Bing Image Search API returns:
+				// - contentUrl: direct image URL
+				// - thumbnailUrl: thumbnail URL
+				// - name: image title
+				// - hostPageUrl: source page URL
+				// - width/height: dimensions
+				
+				String imageUrl = (String) item.get("contentUrl");
+				if (imageUrl == null || imageUrl.trim().isEmpty()) {
+					log.debug("Skipping Bing image result with no contentUrl");
+					continue;
+				}
+				result.setImageUrl(imageUrl);
+				result.setThumbnailUrl((String) item.get("thumbnailUrl"));
+				result.setTitle((String) item.get("name"));
+				result.setSourceUrl((String) item.get("hostPageUrl"));
+				
+				Object widthObj = item.get("width");
+				Object heightObj = item.get("height");
+				if (widthObj instanceof Number) {
+					result.setWidth(((Number) widthObj).intValue());
+				}
+				if (heightObj instanceof Number) {
+					result.setHeight(((Number) heightObj).intValue());
+				}
+				
+				result.setSource("Bing");
+				results.add(result);
+			} catch (Exception e) {
+				log.warn("Error parsing Bing image search result: {}", e.getMessage(), e);
 			}
-			if (heightObj instanceof Number) {
-				result.setHeight(((Number) heightObj).intValue());
-			}
-			
-			result.setSource("Bing");
-			results.add(result);
 		}
 
+		log.info("Successfully parsed {} Bing image search results", results.size());
 		return results;
 	}
 
 	private List<ImageSearchResult> parseBraveImageResults(Map<String, Object> response) {
 		List<ImageSearchResult> results = new ArrayList<>();
-		if (response == null || !response.containsKey("results")) {
+		if (response == null) {
+			log.warn("Brave image search response is null");
+			return results;
+		}
+		
+		log.debug("Brave image search response keys: {}", response.keySet());
+		
+		if (!response.containsKey("results")) {
+			log.warn("Brave image search response has no 'results' key. Available keys: {}. Response: {}", 
+				response.keySet(), response);
 			return results;
 		}
 
 		@SuppressWarnings("unchecked")
 		List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("results");
-		if (items == null) {
+		if (items == null || items.isEmpty()) {
+			log.debug("Brave image search returned empty items list");
 			return results;
 		}
 
+		log.debug("Parsing {} Brave image search results", items.size());
+
 		for (Map<String, Object> item : items) {
-			ImageSearchResult result = new ImageSearchResult();
-			result.setImageUrl((String) item.get("url"));
-			result.setThumbnailUrl((String) item.get("thumbnail"));
-			result.setTitle((String) item.get("title"));
-			result.setSourceUrl((String) item.get("source"));
-			
-			Object widthObj = item.get("width");
-			Object heightObj = item.get("height");
-			if (widthObj instanceof Number) {
-				result.setWidth(((Number) widthObj).intValue());
+			try {
+				ImageSearchResult result = new ImageSearchResult();
+				
+				// Brave Image Search API returns:
+				// - url: direct image URL
+				// - thumbnail: thumbnail URL
+				// - title: image title
+				// - source: source page URL
+				// - width/height: dimensions
+				
+				String imageUrl = (String) item.get("url");
+				if (imageUrl == null || imageUrl.trim().isEmpty()) {
+					log.debug("Skipping Brave image result with no url");
+					continue;
+				}
+				result.setImageUrl(imageUrl);
+				result.setThumbnailUrl((String) item.get("thumbnail"));
+				result.setTitle((String) item.get("title"));
+				result.setSourceUrl((String) item.get("source"));
+				
+				Object widthObj = item.get("width");
+				Object heightObj = item.get("height");
+				if (widthObj instanceof Number) {
+					result.setWidth(((Number) widthObj).intValue());
+				}
+				if (heightObj instanceof Number) {
+					result.setHeight(((Number) heightObj).intValue());
+				}
+				
+				result.setSource("Brave");
+				results.add(result);
+			} catch (Exception e) {
+				log.warn("Error parsing Brave image search result: {}", e.getMessage(), e);
 			}
-			if (heightObj instanceof Number) {
-				result.setHeight(((Number) heightObj).intValue());
-			}
-			
-			result.setSource("Brave");
-			results.add(result);
 		}
 
+		log.info("Successfully parsed {} Brave image search results", results.size());
 		return results;
+	}
+
+	/**
+	 * Filter search results to only include those that contain:
+	 * - The word "calculator" (case-insensitive)
+	 * - The manufacturer name (case-insensitive)
+	 * - The model/type (case-insensitive)
+	 */
+	public List<SearchResult> filterSearchResults(List<SearchResult> results, String manufacturer, String model) {
+		if (results == null || results.isEmpty()) {
+			return results;
+		}
+		
+		if (manufacturer == null || manufacturer.trim().isEmpty() || 
+			model == null || model.trim().isEmpty()) {
+			log.warn("Cannot filter results: manufacturer or model is null/empty");
+			return results;
+		}
+		
+		String manufacturerLower = manufacturer.toLowerCase().trim();
+		String modelLower = model.toLowerCase().trim();
+		
+		List<SearchResult> filtered = new ArrayList<>();
+		
+		for (SearchResult result : results) {
+			if (result == null) {
+				continue;
+			}
+			
+			// Combine title, snippet, and URL for checking
+			String combinedText = "";
+			if (result.getTitle() != null) {
+				combinedText += result.getTitle() + " ";
+			}
+			if (result.getSnippet() != null) {
+				combinedText += result.getSnippet() + " ";
+			}
+			if (result.getUrl() != null) {
+				combinedText += result.getUrl() + " ";
+			}
+			
+			String combinedLower = combinedText.toLowerCase();
+			
+			// Check if result contains all required terms
+			boolean hasCalculator = combinedLower.contains("calculator");
+			boolean hasManufacturer = combinedLower.contains(manufacturerLower);
+			boolean hasModel = combinedLower.contains(modelLower);
+			
+			if (hasCalculator && hasManufacturer && hasModel) {
+				filtered.add(result);
+				log.debug("Result passed filter: {}", result.getTitle());
+			} else {
+				log.debug("Result filtered out - Calculator: {}, Manufacturer: {}, Model: {} - Title: {}", 
+					hasCalculator, hasManufacturer, hasModel, result.getTitle());
+			}
+		}
+		
+		log.info("Filtered {} results from {} total (manufacturer: {}, model: {})", 
+			filtered.size(), results.size(), manufacturer, model);
+		
+		return filtered;
+	}
+
+	/**
+	 * Filter image search results to only include those that contain:
+	 * - The word "calculator" (case-insensitive) AND
+	 * - Either the manufacturer name OR the model/type (case-insensitive)
+	 * 
+	 * Note: Image filtering is less strict than web search filtering because image metadata
+	 * often doesn't contain all three terms, but if the query already includes these terms,
+	 * the images should be relevant.
+	 */
+	public List<ImageSearchResult> filterImageResults(List<ImageSearchResult> results, String manufacturer, String model) {
+		if (results == null || results.isEmpty()) {
+			return results;
+		}
+		
+		if (manufacturer == null || manufacturer.trim().isEmpty() || 
+			model == null || model.trim().isEmpty()) {
+			log.warn("Cannot filter image results: manufacturer or model is null/empty");
+			return results;
+		}
+		
+		String manufacturerLower = manufacturer.toLowerCase().trim();
+		String modelLower = model.toLowerCase().trim();
+		
+		List<ImageSearchResult> filtered = new ArrayList<>();
+		
+		for (ImageSearchResult result : results) {
+			if (result == null) {
+				continue;
+			}
+			
+			// Combine title, sourceUrl, and imageUrl for checking
+			String combinedText = "";
+			if (result.getTitle() != null) {
+				combinedText += result.getTitle() + " ";
+			}
+			if (result.getSourceUrl() != null) {
+				combinedText += result.getSourceUrl() + " ";
+			}
+			if (result.getImageUrl() != null) {
+				combinedText += result.getImageUrl() + " ";
+			}
+			
+			String combinedLower = combinedText.toLowerCase();
+			
+			// Less strict filtering for images: require "calculator" AND (manufacturer OR model)
+			boolean hasCalculator = combinedLower.contains("calculator");
+			boolean hasManufacturer = combinedLower.contains(manufacturerLower);
+			boolean hasModel = combinedLower.contains(modelLower);
+			
+			// Accept if it has "calculator" and at least one of manufacturer or model
+			if (hasCalculator && (hasManufacturer || hasModel)) {
+				filtered.add(result);
+				log.debug("Image result passed filter: {} (Calculator: {}, Manufacturer: {}, Model: {})", 
+					result.getTitle(), hasCalculator, hasManufacturer, hasModel);
+			} else {
+				log.debug("Image result filtered out - Calculator: {}, Manufacturer: {}, Model: {} - Title: {}", 
+					hasCalculator, hasManufacturer, hasModel, result.getTitle());
+			}
+		}
+		
+		log.info("Filtered {} image results from {} total (manufacturer: {}, model: {})", 
+			filtered.size(), results.size(), manufacturer, model);
+		
+		return filtered;
 	}
 
 	public static class SearchResult {

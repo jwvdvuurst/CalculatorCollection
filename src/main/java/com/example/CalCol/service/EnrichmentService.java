@@ -41,11 +41,8 @@ public class EnrichmentService {
 		
 		SocialMediaPostService.EnrichmentData enrichment = new SocialMediaPostService.EnrichmentData();
 		
-		// Build search query
-		String searchQuery = calculator.getManufacturer().getName() + " " + calculator.getModel();
-		if (calculator.getRawRowText() != null && !calculator.getRawRowText().trim().isEmpty()) {
-			searchQuery += " " + calculator.getRawRowText();
-		}
+		// Build enhanced search query
+		String searchQuery = buildEnhancedSearchQuery(calculator);
 		
 		// Get labels and their descriptions
 		List<Label> labels = calculatorLabelRepository.findLabelsByCalculatorId(calculator.getId());
@@ -64,15 +61,24 @@ public class EnrichmentService {
 		
 		// Perform web searches
 		try {
+			String manufacturer = calculator.getManufacturer().getName();
+			String model = calculator.getModel();
+			
 			List<WebSearchService.SearchResult> googleResults = webSearchService.searchGoogle(searchQuery, 5);
+			googleResults = webSearchService.filterSearchResults(googleResults, manufacturer, model);
+			
 			List<WebSearchService.SearchResult> bingResults = webSearchService.searchBing(searchQuery, 5);
+			bingResults = webSearchService.filterSearchResults(bingResults, manufacturer, model);
+			
 			List<WebSearchService.SearchResult> braveResults = webSearchService.searchBrave(searchQuery, 5);
+			braveResults = webSearchService.filterSearchResults(braveResults, manufacturer, model);
+			
 			List<WebSearchService.SearchResult> allWebResults = new ArrayList<>();
 			allWebResults.addAll(googleResults);
 			allWebResults.addAll(bingResults);
 			allWebResults.addAll(braveResults);
 			enrichment.setWebResults(allWebResults);
-			log.info("Web search results: Google={}, Bing={}, Brave={}, Total={}", 
+			log.info("Web search results (after filtering): Google={}, Bing={}, Brave={}, Total={}", 
 				googleResults.size(), bingResults.size(), braveResults.size(), allWebResults.size());
 		} catch (Exception e) {
 			log.error("Error performing web search: {}", e.getMessage(), e);
@@ -80,15 +86,25 @@ public class EnrichmentService {
 
 		// Perform image searches
 		try {
-			List<WebSearchService.ImageSearchResult> googleImages = webSearchService.searchGoogleImages(searchQuery, 10);
-			List<WebSearchService.ImageSearchResult> bingImages = webSearchService.searchBingImages(searchQuery, 10);
-			List<WebSearchService.ImageSearchResult> braveImages = webSearchService.searchBraveImages(searchQuery, 10);
+			String imageSearchQuery = buildImageSearchQuery(calculator);
+			String manufacturer = calculator.getManufacturer().getName();
+			String model = calculator.getModel();
+			
+			List<WebSearchService.ImageSearchResult> googleImages = webSearchService.searchGoogleImages(imageSearchQuery, 10);
+			googleImages = webSearchService.filterImageResults(googleImages, manufacturer, model);
+			
+			List<WebSearchService.ImageSearchResult> bingImages = webSearchService.searchBingImages(imageSearchQuery, 10);
+			bingImages = webSearchService.filterImageResults(bingImages, manufacturer, model);
+			
+			List<WebSearchService.ImageSearchResult> braveImages = webSearchService.searchBraveImages(imageSearchQuery, 10);
+			braveImages = webSearchService.filterImageResults(braveImages, manufacturer, model);
+			
 			List<WebSearchService.ImageSearchResult> allImageResults = new ArrayList<>();
 			allImageResults.addAll(googleImages);
 			allImageResults.addAll(bingImages);
 			allImageResults.addAll(braveImages);
 			enrichment.setImageResults(allImageResults);
-			log.info("Image search results: Google={}, Bing={}, Brave={}, Total={}", 
+			log.info("Image search results (after filtering): Google={}, Bing={}, Brave={}, Total={}", 
 				googleImages.size(), bingImages.size(), braveImages.size(), allImageResults.size());
 		} catch (Exception e) {
 			log.error("Error performing image search: {}", e.getMessage(), e);
@@ -161,6 +177,89 @@ public class EnrichmentService {
 		info.setImageUrls(imageUrls);
 		
 		return info;
+	}
+
+	/**
+	 * Build enhanced search query with manufacturer, model, years, calculator, and vintage keywords
+	 */
+	private String buildEnhancedSearchQuery(Calculator calculator) {
+		StringBuilder query = new StringBuilder();
+		
+		// Add manufacturer and model
+		query.append(calculator.getManufacturer().getName()).append(" ");
+		query.append(calculator.getModel());
+		
+		// Add years if present
+		if (calculator.getSoldFrom() != null) {
+			query.append(" ").append(calculator.getSoldFrom());
+		}
+		if (calculator.getSoldTo() != null) {
+			query.append(" ").append(calculator.getSoldTo());
+		}
+		
+		// Add "calculator" keyword
+		query.append(" calculator");
+		
+		// Add "vintage" keyword, except when from year > 2000
+		if (calculator.getSoldFrom() == null || calculator.getSoldFrom() <= 2000) {
+			query.append(" vintage");
+		}
+		
+		// Add raw row text if present
+		if (calculator.getRawRowText() != null && !calculator.getRawRowText().trim().isEmpty()) {
+			query.append(" ").append(calculator.getRawRowText());
+		}
+		
+		// Clean and deduplicate the query
+		return cleanAndDeduplicateQuery(query.toString().trim());
+	}
+
+	/**
+	 * Clean search query by removing special characters and deduplicating terms
+	 */
+	private String cleanAndDeduplicateQuery(String query) {
+		if (query == null || query.trim().isEmpty()) {
+			return "";
+		}
+		
+		// Remove special characters: comma, semicolon, colon, and other punctuation
+		// Keep alphanumeric, spaces, hyphens, and apostrophes (for words like "don't")
+		String cleaned = query.replaceAll("[,\\;:!@#$%^&*()\\[\\]{}_+=<>?/\\\\|\"`~]", " ");
+		
+		// Split into terms, normalize whitespace
+		String[] terms = cleaned.split("\\s+");
+		
+		// Use LinkedHashSet to preserve order while removing duplicates (case-insensitive)
+		java.util.LinkedHashSet<String> uniqueTerms = new java.util.LinkedHashSet<>();
+		java.util.Set<String> seenLower = new java.util.HashSet<>();
+		
+		for (String term : terms) {
+			if (term != null && !term.trim().isEmpty()) {
+				String trimmed = term.trim();
+				String lower = trimmed.toLowerCase();
+				
+				// Only add if we haven't seen this term (case-insensitive)
+				if (!seenLower.contains(lower)) {
+					uniqueTerms.add(trimmed);
+					seenLower.add(lower);
+				}
+			}
+		}
+		
+		// Join unique terms with spaces
+		return String.join(" ", uniqueTerms);
+	}
+
+	/**
+	 * Build enhanced image search query with manufacturer, model, years, calculator, vintage keywords, and image specification
+	 */
+	private String buildImageSearchQuery(Calculator calculator) {
+		// Start with the base enhanced query (already cleaned and deduplicated)
+		String baseQuery = buildEnhancedSearchQuery(calculator);
+		
+		// Add image-specific keyword and clean again to avoid duplicates
+		String imageQuery = baseQuery + " image";
+		return cleanAndDeduplicateQuery(imageQuery);
 	}
 
 	private String buildImageUrl(String imagePath) {

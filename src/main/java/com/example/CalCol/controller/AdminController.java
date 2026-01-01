@@ -93,13 +93,34 @@ public class AdminController {
 			@PathVariable Long id,
 			@ModelAttribute Calculator calculator,
 			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) String description,
+			@RequestParam(required = false) String enrichedData,
+			@RequestParam(value = "clearEnrichment", defaultValue = "false") boolean clearEnrichment,
 			RedirectAttributes redirectAttributes) {
 		if (manufacturerId != null) {
 			adminService.getManufacturerById(manufacturerId).ifPresent(calculator::setManufacturer);
 		}
 
+		// Handle enrichment data
+		if (clearEnrichment) {
+			calculator.setDescription(null);
+			calculator.setEnrichedData(null);
+		} else {
+			// Update description if provided
+			if (description != null) {
+				calculator.setDescription(description.trim().isEmpty() ? null : description);
+			}
+			// Update enrichedData if provided
+			if (enrichedData != null) {
+				calculator.setEnrichedData(enrichedData.trim().isEmpty() ? null : enrichedData);
+			}
+		}
+
 		adminService.updateCalculator(id, calculator);
-		redirectAttributes.addFlashAttribute("successMessage", "Calculator updated successfully!");
+		String message = clearEnrichment 
+			? "Calculator updated successfully! Enrichment data cleared." 
+			: "Calculator updated successfully!";
+		redirectAttributes.addFlashAttribute("successMessage", message);
 		return "redirect:/admin/calculators";
 	}
 

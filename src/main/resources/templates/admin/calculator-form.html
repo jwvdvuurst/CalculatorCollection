@@ -109,6 +109,42 @@
 					<label for="rawRowText">Raw Row Text:</label>
 					<textarea id="rawRowText" name="rawRowText" th:field="*{rawRowText}" rows="3"></textarea>
 				</div>
+				
+				<!-- Enrichment Data Section -->
+				<div th:if="${calculator.id != null}" style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
+					<h2 style="color: #667eea; margin-bottom: 20px;">Enrichment Data</h2>
+					
+					<div class="form-group">
+						<label for="description">Description (Enriched):</label>
+						<textarea id="description" name="description" th:field="*{description}" rows="8" 
+								  style="font-family: monospace; font-size: 0.9em;"></textarea>
+						<small style="color: #666; display: block; margin-top: 5px;">
+							This field contains the enriched description generated from web search, AI, and museum data.
+						</small>
+					</div>
+					
+					<div class="form-group">
+						<label for="enrichedData">Enriched Data (JSON):</label>
+						<textarea id="enrichedData" name="enrichedData" 
+								  th:text="${calculator.enrichedData != null ? calculator.enrichedData : ''}" 
+								  rows="12" style="font-family: monospace; font-size: 0.85em;"></textarea>
+						<small style="color: #666; display: block; margin-top: 5px;">
+							Structured JSON data containing AI content, web search results, museum data, and image results.
+						</small>
+					</div>
+					
+					<div class="form-group" style="margin-top: 15px;">
+						<label style="display: flex; align-items: center; cursor: pointer;">
+							<input type="checkbox" name="clearEnrichment" id="clearEnrichment" value="true" 
+								   style="width: auto; margin-right: 10px; cursor: pointer;">
+							<span style="color: #d32f2f; font-weight: 500;">Clear all enrichment data (description and enrichedData)</span>
+						</label>
+						<small style="color: #666; display: block; margin-top: 5px; margin-left: 25px;">
+							Check this box to remove all enrichment data when saving. This will clear both the description and enrichedData fields.
+						</small>
+					</div>
+				</div>
+				
 				<button type="submit" class="btn">Save Calculator</button>
 				<a th:href="@{/admin/calculators}" class="btn" style="background: #6c757d; margin-left: 10px;">Cancel</a>
 			</form>
