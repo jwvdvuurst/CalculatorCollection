@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/png" href="/favicon.png">
+	<title>Edit Manufacturer - Calculator Collector</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			margin: 0;
+			padding: 0;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+		}
+		.navbar {
+			background: white;
+			padding: 15px 30px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+		.navbar a {
+			color: #667eea;
+			text-decoration: none;
+			margin: 0 15px;
+			font-weight: 500;
+		}
+		.navbar a:hover {
+			color: #5568d3;
+		}
+		.container {
+			max-width: 800px;
+			margin: 30px auto;
+			padding: 0 20px;
+		}
+		.card {
+			background: white;
+			border-radius: 10px;
+			padding: 30px;
+			margin-bottom: 20px;
+			box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+		}
+		.card h2 {
+			margin-top: 0;
+			color: #333;
+		}
+		.form-group {
+			margin-bottom: 20px;
+		}
+		.form-group label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 500;
+			color: #333;
+		}
+		.form-group input,
+		.form-group select {
+			width: 100%;
+			padding: 12px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 1em;
+			box-sizing: border-box;
+		}
+		.btn {
+			padding: 12px 24px;
+			background: #667eea;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+			font-size: 1em;
+			text-decoration: none;
+			display: inline-block;
+			margin-right: 10px;
+		}
+		.btn:hover {
+			background: #5568d3;
+		}
+		.btn-danger {
+			background: #e74c3c;
+		}
+		.btn-danger:hover {
+			background: #c0392b;
+		}
+		.btn-secondary {
+			background: #95a5a6;
+		}
+		.btn-secondary:hover {
+			background: #7f8c8d;
+		}
+		.alert {
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+		}
+		.alert-success {
+			background: #d4edda;
+			color: #155724;
+			border: 1px solid #c3e6cb;
+		}
+		.alert-error {
+			background: #f8d7da;
+			color: #721c24;
+			border: 1px solid #f5c6cb;
+		}
+		.info-box {
+			background: #e8f4f8;
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+			border-left: 4px solid #3498db;
+		}
+		.warning-box {
+			background: #fff3cd;
+			padding: 15px;
+			border-radius: 5px;
+			margin-bottom: 20px;
+			border-left: 4px solid #ffc107;
+		}
+	</style>
+</head>
+<body>
+	<div class="navbar">
+		<div>
+			<a href="/welcome">Home</a>
+			<a href="/calculators">Browse Calculators</a>
+			<a href="/calculators/manufacturers">Manufacturers</a>
+			<sec:authorize="isAuthenticated()">
+				<a href="/calculators/collection">My Collection</a>
+			</sec:authorize>
+		</div>
+		<div>
+			<sec:authorize="isAuthenticated()">
+				<a href="/profile">My Profile</a>
+				<span style="margin-left: 15px;">Hello, <strong sec:authentication="name"></strong>!</span>
+				<a href="/logout" style="margin-left: 15px;">Logout</a>
+			</sec:authorize>
+			<sec:authorize="!isAuthenticated()">
+				<a href="/login">Login</a>
+			</sec:authorize>
+		</div>
+	</div>
+
+	<div class="container">
+		<div th:if="${successMessage}" class="alert alert-success" th:text="${successMessage}"></div>
+		<div th:if="${errorMessage}" class="alert alert-error" th:text="${errorMessage}"></div>
+
+		<div th:if="${manufacturer}" class="card">
+			<h2>Edit Manufacturer</h2>
+			
+			<div class="info-box">
+				<strong>Current Name:</strong> <span th:text="${manufacturer.name}"></span><br>
+				<strong>ID:</strong> <span th:text="${manufacturer.id}"></span><br>
+				<strong>Calculators:</strong> <span th:text="${manufacturer.calculators.size()}"></span>
+			</div>
+
+			<form th:action="@{/calculators/manufacturers/{id}/update(id=${manufacturer.id})}" method="post">
+				<div class="form-group">
+					<label for="name">Manufacturer Name:</label>
+					<input type="text" id="name" name="name" th:value="${manufacturer.name}" required>
+				</div>
+				<button type="submit" class="btn">Update Name</button>
+				<a th:href="@{/calculators/manufacturers}" class="btn btn-secondary">Cancel</a>
+			</form>
+		</div>
+
+		<div th:if="${manufacturer}" class="card">
+			<h2>Merge with Another Manufacturer</h2>
+			
+			<div class="warning-box">
+				<strong>Warning:</strong> Merging will move all calculators from the source manufacturer to this manufacturer, 
+				and then delete the source manufacturer. This action cannot be undone.
+			</div>
+
+			<form th:action="@{/calculators/manufacturers/merge}" method="post" onsubmit="return confirmMerge()">
+				<input type="hidden" name="targetManufacturerId" th:value="${manufacturer.id}">
+				<div class="form-group">
+					<label for="sourceManufacturerId">Select Manufacturer to Merge From:</label>
+					<select id="sourceManufacturerId" name="sourceManufacturerId" required>
+						<option value="">-- Select a manufacturer --</option>
+						<option th:each="mfg : ${allManufacturers}" 
+								th:value="${mfg.id}" 
+								th:text="${mfg.name + ' (ID: ' + mfg.id + ', Calculators: ' + mfg.calculators.size() + ')'}"
+								th:disabled="${mfg.id == manufacturer.id}">
+						</option>
+					</select>
+				</div>
+				<div class="form-group">
+					<label for="newName">New Name (optional, leave blank to keep current name):</label>
+					<input type="text" id="newName" name="newName" th:value="${manufacturer.name}" 
+						   placeholder="Leave blank to keep current name">
+				</div>
+				<button type="submit" class="btn btn-danger">Merge Manufacturers</button>
+				<a th:href="@{/calculators/manufacturers}" class="btn btn-secondary">Cancel</a>
+			</form>
+		</div>
+	</div>
+
+	<script>
+		function confirmMerge() {
+			const sourceId = document.getElementById('sourceManufacturerId').value;
+			if (!sourceId) {
+				alert('Please select a manufacturer to merge from.');
+				return false;
+			}
+			return confirm('Are you sure you want to merge these manufacturers? This will move all calculators and delete the source manufacturer. This action cannot be undone.');
+		}
+	</script>
+</body>
+</html>
+

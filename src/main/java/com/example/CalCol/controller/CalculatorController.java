@@ -39,6 +39,7 @@ public class CalculatorController {
 	private final CalculatorProposalService proposalService;
 	private final EnrichmentService enrichmentService;
 	private final SocialMediaPostService socialMediaPostService;
+	private final com.example.CalCol.service.WishlistService wishlistService;
 	private static final int PAGE_SIZE = 20;
 
 	@GetMapping
@@ -64,17 +65,28 @@ public class CalculatorController {
 		if (search != null && !search.trim().isEmpty()) {
 			model.addAttribute("search", search);
 		}
+		
+		if (manufacturerId != null) {
+			model.addAttribute("manufacturerId", manufacturerId);
+		}
 
 		if (authentication != null && authentication.isAuthenticated()) {
 			String username = authentication.getName();
 			model.addAttribute("username", username);
 			model.addAttribute("collectionCount", calculatorService.getUserCollectionCount(username));
+			model.addAttribute("wishlistCount", wishlistService.getUserWishlistCount(username));
 			// Add set of calculator IDs in user's collection for template checking
 			var collectionIds = calculatorsPage.getContent().stream()
 				.filter(calc -> calculatorService.isInCollection(username, calc.getId()))
 				.map(calc -> calc.getId())
 				.collect(java.util.stream.Collectors.toSet());
 			model.addAttribute("collectionIds", collectionIds);
+			// Add set of calculator IDs in user's wishlist
+			var wishlistIds = calculatorsPage.getContent().stream()
+				.filter(calc -> wishlistService.isInWishlist(username, calc.getId()))
+				.map(calc -> calc.getId())
+				.collect(java.util.stream.Collectors.toSet());
+			model.addAttribute("wishlistIds", wishlistIds);
 		}
 
 		return "calculators/browse";
@@ -83,17 +95,82 @@ public class CalculatorController {
 	@GetMapping("/manufacturers")
 	public String browseManufacturers(
 			@RequestParam(required = false) String search,
+			@RequestParam(required = false) String sort,
 			@RequestParam(defaultValue = "0") int page,
 			Model model) {
 
 		Pageable pageable = PageRequest.of(page, PAGE_SIZE);
-		model.addAttribute("manufacturers", calculatorService.searchManufacturers(search, pageable));
+		model.addAttribute("manufacturers", calculatorService.searchManufacturersWithSort(search, sort, pageable));
 
 		if (search != null && !search.trim().isEmpty()) {
 			model.addAttribute("search", search);
 		}
+		
+		if (sort != null && !sort.trim().isEmpty()) {
+			model.addAttribute("sort", sort);
+		}
 
 		return "calculators/manufacturers";
+	}
+	
+	@GetMapping("/manufacturers/{id}/edit")
+	public String editManufacturerForm(
+			@PathVariable Long id,
+			Model model,
+			Authentication authentication) {
+		
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+		
+		calculatorService.getManufacturerById(id).ifPresent(m -> {
+			model.addAttribute("manufacturer", m);
+			// Get all manufacturers for merge target selection
+			model.addAttribute("allManufacturers", calculatorService.getAllManufacturers(Pageable.unpaged()).getContent());
+		});
+		
+		return "calculators/manufacturer-edit";
+	}
+	
+	@PostMapping("/manufacturers/{id}/update")
+	public String updateManufacturer(
+			@PathVariable Long id,
+			@RequestParam String name,
+			RedirectAttributes redirectAttributes,
+			Authentication authentication) {
+		
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+		
+		if (calculatorService.updateManufacturer(id, name)) {
+			redirectAttributes.addFlashAttribute("successMessage", "Manufacturer updated successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to update manufacturer.");
+		}
+		
+		return "redirect:/calculators/manufacturers";
+	}
+	
+	@PostMapping("/manufacturers/merge")
+	public String mergeManufacturers(
+			@RequestParam Long targetManufacturerId,
+			@RequestParam Long sourceManufacturerId,
+			@RequestParam(required = false) String newName,
+			RedirectAttributes redirectAttributes,
+			Authentication authentication) {
+		
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+		
+		if (calculatorService.mergeManufacturers(targetManufacturerId, sourceManufacturerId, newName)) {
+			redirectAttributes.addFlashAttribute("successMessage", "Manufacturers merged successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to merge manufacturers.");
+		}
+		
+		return "redirect:/calculators/manufacturers";
 	}
 
 	@GetMapping("/collection")
@@ -117,9 +194,230 @@ public class CalculatorController {
 		return "calculators/collection";
 	}
 
+	@GetMapping("/wishlist")
+	public String viewWishlist(
+			@RequestParam(defaultValue = "0") int page,
+			Model model,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		Pageable pageable = PageRequest.of(page, PAGE_SIZE);
+		
+		model.addAttribute("wishlist", wishlistService.getUserWishlist(username, pageable));
+		model.addAttribute("wishlistCount", wishlistService.getUserWishlistCount(username));
+		model.addAttribute("username", username);
+
+		return "calculators/wishlist";
+	}
+
+	@PostMapping("/wishlist/add/{calculatorId}")
+	public String addToWishlist(
+			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String notes,
+			@RequestParam(required = false) String redirectTo,
+			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) String search,
+			@RequestParam(defaultValue = "0") int page,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean added = wishlistService.addToWishlist(username, calculatorId, notes);
+
+		if (added) {
+			redirectAttributes.addFlashAttribute("successMessage", "Calculator added to your wishlist!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"Calculator could not be added. It may already be in your wishlist.");
+		}
+
+		if ("detail".equals(redirectTo)) {
+			return "redirect:/calculators/" + calculatorId;
+		} else if ("wishlist".equals(redirectTo)) {
+			return "redirect:/calculators/wishlist";
+		}
+		// Preserve filter parameters when redirecting to browse
+		return buildBrowseRedirect(manufacturerId, search, page);
+	}
+
+	@PostMapping("/wishlist/remove/{calculatorId}")
+	public String removeFromWishlist(
+			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String redirectTo,
+			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) String search,
+			@RequestParam(defaultValue = "0") int page,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean removed = wishlistService.removeFromWishlist(username, calculatorId);
+
+		if (removed) {
+			redirectAttributes.addFlashAttribute("successMessage", "Calculator removed from your wishlist!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Calculator could not be removed.");
+		}
+
+		if ("wishlist".equals(redirectTo)) {
+			return "redirect:/calculators/wishlist";
+		} else if ("detail".equals(redirectTo)) {
+			return "redirect:/calculators/" + calculatorId;
+		}
+		// Preserve filter parameters when redirecting to browse
+		return buildBrowseRedirect(manufacturerId, search, page);
+	}
+
+	@PostMapping("/wishlist/{calculatorId}/move-to-collection")
+	public String moveWishlistToCollection(
+			@PathVariable Long calculatorId,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		
+		// Get notes from wishlist item before removing
+		java.util.Optional<com.example.CalCol.entity.WishlistItem> itemOpt = 
+			wishlistService.getWishlistItem(username, calculatorId);
+		
+		String notes = itemOpt.map(com.example.CalCol.entity.WishlistItem::getNotes).orElse(null);
+		
+		// Remove from wishlist
+		boolean removed = wishlistService.removeFromWishlist(username, calculatorId);
+		if (!removed) {
+			redirectAttributes.addFlashAttribute("errorMessage", "Calculator not found in wishlist.");
+			return "redirect:/calculators/wishlist";
+		}
+		
+		// Add to collection with notes
+		boolean added = calculatorService.addToCollection(username, calculatorId, notes);
+		if (added) {
+			redirectAttributes.addFlashAttribute("successMessage", "Calculator moved to your collection!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"Calculator could not be added to collection. It may already be in your collection.");
+		}
+
+		return "redirect:/calculators/wishlist";
+	}
+
+	@PostMapping("/wishlist/{calculatorId}/notes")
+	public String updateWishlistNotes(
+			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String notes,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean updated = wishlistService.updateWishlistNotes(username, calculatorId, notes);
+
+		if (updated) {
+			redirectAttributes.addFlashAttribute("successMessage", "Notes updated successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to update notes.");
+		}
+
+		return "redirect:/calculators/wishlist";
+	}
+	
+	@PostMapping("/wishlist/{calculatorId}/search-queries")
+	public String updateWishlistSearchQueries(
+			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String marktplaatsQuery,
+			@RequestParam(required = false) String ebayQuery,
+			@RequestParam(required = false) String etsyQuery,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean updated = wishlistService.updateWishlistSearchQueries(
+			username, calculatorId, marktplaatsQuery, ebayQuery, etsyQuery);
+
+		if (updated) {
+			redirectAttributes.addFlashAttribute("successMessage", "Search queries updated successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to update search queries.");
+		}
+
+		return "redirect:/calculators/wishlist";
+	}
+	
+	@PostMapping("/wishlist/{calculatorId}/search-queries/reset")
+	public String resetWishlistSearchQueriesToDefault(
+			@PathVariable Long calculatorId,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean updated = wishlistService.resetWishlistSearchQueriesToDefault(username, calculatorId);
+
+		if (updated) {
+			redirectAttributes.addFlashAttribute("successMessage", "Search queries reset to default successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to reset search queries.");
+		}
+
+		return "redirect:/calculators/wishlist";
+	}
+
+	@PostMapping("/collection/{calculatorId}/notes")
+	public String updateCollectionNotes(
+			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String notes,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		boolean updated = calculatorService.updateCollectionNotes(username, calculatorId, notes);
+
+		if (updated) {
+			redirectAttributes.addFlashAttribute("successMessage", "Notes updated successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to update notes.");
+		}
+
+		return "redirect:/calculators/collection";
+	}
+
 	@PostMapping("/collection/add/{calculatorId}")
 	public String addToCollection(
 			@PathVariable Long calculatorId,
+			@RequestParam(required = false) String redirectTo,
+			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) String search,
+			@RequestParam(defaultValue = "0") int page,
 			Authentication authentication,
 			RedirectAttributes redirectAttributes) {
 
@@ -137,13 +435,22 @@ public class CalculatorController {
 				"Calculator could not be added. It may already be in your collection.");
 		}
 
-		return "redirect:/calculators";
+		if ("detail".equals(redirectTo)) {
+			return "redirect:/calculators/" + calculatorId;
+		} else if ("collection".equals(redirectTo)) {
+			return "redirect:/calculators/collection";
+		}
+		// Preserve filter parameters when redirecting to browse
+		return buildBrowseRedirect(manufacturerId, search, page);
 	}
 
 	@PostMapping("/collection/remove/{calculatorId}")
 	public String removeFromCollection(
 			@PathVariable Long calculatorId,
 			@RequestParam(required = false) String redirectTo,
+			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) String search,
+			@RequestParam(defaultValue = "0") int page,
 			Authentication authentication,
 			RedirectAttributes redirectAttributes) {
 
@@ -162,8 +469,11 @@ public class CalculatorController {
 
 		if ("collection".equals(redirectTo)) {
 			return "redirect:/calculators/collection";
+		} else if ("detail".equals(redirectTo)) {
+			return "redirect:/calculators/" + calculatorId;
 		}
-		return "redirect:/calculators";
+		// Preserve filter parameters when redirecting to browse
+		return buildBrowseRedirect(manufacturerId, search, page);
 	}
 
 	@GetMapping("/{id}")
@@ -180,6 +490,8 @@ public class CalculatorController {
 				String username = authentication.getName();
 				model.addAttribute("images", calculatorService.getImagesForUser(id, username));
 				model.addAttribute("username", username);
+				model.addAttribute("inCollection", calculatorService.isInCollection(username, id));
+				model.addAttribute("inWishlist", wishlistService.isInWishlist(username, id));
 				// Check if user is admin
 				boolean isAdmin = authentication.getAuthorities().stream()
 					.anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
@@ -404,6 +716,36 @@ public class CalculatorController {
 			return "redirect:/calculators/" + calculatorId;
 		}
 		return "redirect:/calculators";
+	}
+
+	@PostMapping("/{id}/links/bulk-delete")
+	public String bulkDeleteLinks(
+			@PathVariable Long id,
+			@RequestParam("selectedLinks") java.util.List<Long> linkIds,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		if (linkIds == null || linkIds.isEmpty()) {
+			redirectAttributes.addFlashAttribute("errorMessage", "No links selected for deletion.");
+			return "redirect:/calculators/" + id;
+		}
+
+		String username = authentication.getName();
+		int deletedCount = linkService.bulkDeleteLinks(linkIds, username);
+
+		if (deletedCount > 0) {
+			redirectAttributes.addFlashAttribute("successMessage", 
+				deletedCount + " link(s) deleted successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"No links could be deleted. You may not have permission to delete the selected links.");
+		}
+
+		return "redirect:/calculators/" + id;
 	}
 
 	@GetMapping("/collection/export")
@@ -1106,6 +1448,35 @@ public class CalculatorController {
 		return "redirect:/calculators/collection/share";
 	}
 	
+	/**
+	 * Build redirect URL to browse page with filter parameters preserved
+	 */
+	private String buildBrowseRedirect(Long manufacturerId, String search, int page) {
+		StringBuilder redirect = new StringBuilder("redirect:/calculators");
+		boolean hasParams = false;
+		
+		if (manufacturerId != null) {
+			redirect.append(hasParams ? "&" : "?").append("manufacturerId=").append(manufacturerId);
+			hasParams = true;
+		}
+		
+		if (search != null && !search.trim().isEmpty()) {
+			try {
+				String encodedSearch = java.net.URLEncoder.encode(search, java.nio.charset.StandardCharsets.UTF_8);
+				redirect.append(hasParams ? "&" : "?").append("search=").append(encodedSearch);
+				hasParams = true;
+			} catch (Exception e) {
+				log.warn("Failed to encode search parameter: {}", e.getMessage());
+			}
+		}
+		
+		if (page > 0) {
+			redirect.append(hasParams ? "&" : "?").append("page=").append(page);
+		}
+		
+		return redirect.toString();
+	}
+
 	/**
 	 * Clean HTML tags from text
 	 */

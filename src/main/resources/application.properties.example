@@ -3,6 +3,12 @@ spring.thymeleaf.prefix=classpath:/templates/
 spring.thymeleaf.suffix=.html
 spring.thymeleaf.cache=false
 
+# Server Configuration - Bind to all network interfaces (required for emulator access)
+# 0.0.0.0 means the server will accept connections from any network interface
+# This is necessary for Android emulator connections (10.0.2.2)
+server.address=0.0.0.0
+server.port=8080
+
 # H2 Database Configuration
 # Using file-based database for persistence (stored in ./data/calcol.mv.db)
 spring.datasource.url=jdbc:h2:file:./data/calcol;DB_CLOSE_DELAY=-1;AUTO_SERVER=TRUE
@@ -66,3 +72,15 @@ app.quota.google.monthly-limit=10000
 app.quota.bing.monthly-limit=10000
 app.quota.ai.monthly-limit=5000
 
+# Email Configuration (optional)
+# For Gmail: Use App Password (not your regular password)
+# Enable 2FA and generate App Password: https://myaccount.google.com/apppasswords
+# For other SMTP servers, adjust host and port accordingly
+spring.mail.host=smtp.gmail.com
+spring.mail.port=587
+spring.mail.username=
+spring.mail.password=
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.from=Calculator Collector <noreply@calculatorcollector.com>

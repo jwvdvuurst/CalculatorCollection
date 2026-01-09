@@ -3,6 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/png" href="/favicon.png">
 	<title>My Collection - Calculator Collector</title>
 	<style>
 		body {
@@ -215,6 +217,7 @@
 			<a href="/calculators/manufacturers">Manufacturers</a>
 			<sec:authorize="isAuthenticated()">
 				<a href="/calculators/collection">My Collection</a>
+				<a href="/calculators/wishlist">My Wishlist</a>
 			</sec:authorize>
 		</div>
 		<div>
@@ -265,6 +268,35 @@
 						<span th:if="${item.calculator.soldTo != null}" th:text="' - ' + ${item.calculator.soldTo}"></span>
 					</div>
 					<div class="added-date" th:text="'Added: ' + ${#temporals.format(item.addedAt, 'yyyy-MM-dd HH:mm')}">Added date</div>
+					
+					<!-- Notes Section -->
+					<div class="notes-section" style="margin: 15px 0;">
+						<div class="notes-display" th:id="'notes-display-' + ${item.calculator.id}">
+							<div th:if="${item.notes != null && !item.notes.isEmpty()}" 
+								 style="background: #f5f5f5; padding: 10px; border-radius: 5px; margin-bottom: 5px; font-size: 0.9em; color: #555;">
+								<strong>Notes:</strong>
+								<div th:text="${item.notes}">Notes text</div>
+							</div>
+							<button type="button" class="btn" 
+									style="background: #28a745; color: white; font-size: 0.8em; padding: 5px 10px;"
+									th:onclick="'editNotes(' + ${item.calculator.id} + ')'">
+								<span th:text="${item.notes != null && !item.notes.isEmpty()} ? 'Edit Notes' : 'Add Notes'">Add Notes</span>
+							</button>
+						</div>
+						<div class="notes-edit hidden" th:id="'notes-edit-' + ${item.calculator.id}">
+							<form th:action="@{/calculators/collection/{id}/notes(id=${item.calculator.id})}" method="post">
+								<textarea name="notes" 
+										  style="width: 100%; min-height: 60px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; font-family: inherit; font-size: 0.9em;"
+										  th:text="${item.notes}">Notes</textarea>
+								<div style="margin-top: 5px; display: flex; gap: 5px;">
+									<button type="submit" class="btn" style="background: #667eea; color: white; font-size: 0.8em; padding: 5px 10px;">Save</button>
+									<button type="button" class="btn" style="background: #6c757d; color: white; font-size: 0.8em; padding: 5px 10px;"
+											th:onclick="'cancelEditNotes(' + ${item.calculator.id} + ')'">Cancel</button>
+								</div>
+							</form>
+						</div>
+					</div>
+					
 					<div class="actions">
 						<a th:href="@{/calculators/{id}(id=${item.calculator.id})}" class="btn btn-primary" style="margin-bottom: 10px; display: block; text-align: center;">View Details</a>
 						<form th:action="@{/calculators/collection/remove/{id}(id=${item.calculator.id}, redirectTo='collection')}" method="post">
@@ -342,6 +374,20 @@
 			// Show selected tab
 			document.getElementById(tabName + '-tab').classList.add('active');
 			event.target.classList.add('active');
+		}
+		
+		function editNotes(calculatorId) {
+			const display = document.getElementById('notes-display-' + calculatorId);
+			const edit = document.getElementById('notes-edit-' + calculatorId);
+			display.classList.add('hidden');
+			edit.classList.remove('hidden');
+		}
+		
+		function cancelEditNotes(calculatorId) {
+			const display = document.getElementById('notes-display-' + calculatorId);
+			const edit = document.getElementById('notes-edit-' + calculatorId);
+			display.classList.remove('hidden');
+			edit.classList.add('hidden');
 		}
 	</script>
 </body>

@@ -9,6 +9,7 @@ import com.example.CalCol.service.ImageService;
 import com.example.CalCol.service.ImportService;
 import com.example.CalCol.service.LabelDerivationService;
 import com.example.CalCol.service.LabelService;
+import com.example.CalCol.service.LinkService;
 import com.example.CalCol.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +35,7 @@ public class AdminController {
 	private final ImportService importService;
 	private final CalculatorProposalService proposalService;
 	private final UserService userService;
+	private final LinkService linkService;
 	private static final int PAGE_SIZE = 20;
 
 	@GetMapping("/dashboard")
@@ -70,6 +72,7 @@ public class AdminController {
 		adminService.getCalculatorById(id).ifPresent(calc -> {
 			model.addAttribute("calculator", calc);
 			model.addAttribute("manufacturers", adminService.getAllManufacturers(Pageable.unpaged()).getContent());
+			model.addAttribute("links", linkService.getCalculatorLinks(id));
 		});
 		return "admin/calculator-form";
 	}
@@ -372,6 +375,56 @@ public class AdminController {
 			redirectAttributes.addFlashAttribute("errorMessage", "Failed to delete user.");
 		}
 		return "redirect:/admin/users";
+	}
+
+	@PostMapping("/calculators/{calculatorId}/links")
+	public String addLink(
+			@PathVariable Long calculatorId,
+			@RequestParam String url,
+			@RequestParam String title,
+			@RequestParam(required = false) String description,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+		try {
+			linkService.addLink(calculatorId, url, title, description, authentication.getName());
+			redirectAttributes.addFlashAttribute("successMessage", "Link added successfully!");
+		} catch (Exception e) {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to add link: " + e.getMessage());
+		}
+		return "redirect:/admin/calculators/edit/" + calculatorId;
+	}
+
+	@PostMapping("/calculators/{calculatorId}/links/{linkId}")
+	public String updateLink(
+			@PathVariable Long calculatorId,
+			@PathVariable Long linkId,
+			@RequestParam String url,
+			@RequestParam String title,
+			@RequestParam(required = false) String description,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+		try {
+			linkService.updateLink(linkId, url, title, description, authentication.getName());
+			redirectAttributes.addFlashAttribute("successMessage", "Link updated successfully!");
+		} catch (Exception e) {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to update link: " + e.getMessage());
+		}
+		return "redirect:/admin/calculators/edit/" + calculatorId;
+	}
+
+	@PostMapping("/calculators/{calculatorId}/links/{linkId}/delete")
+	public String deleteLink(
+			@PathVariable Long calculatorId,
+			@PathVariable Long linkId,
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+		// Use adminDeleteLink since this is an admin-only controller
+		if (linkService.adminDeleteLink(linkId)) {
+			redirectAttributes.addFlashAttribute("successMessage", "Link deleted successfully!");
+		} else {
+			redirectAttributes.addFlashAttribute("errorMessage", "Failed to delete link.");
+		}
+		return "redirect:/admin/calculators/edit/" + calculatorId;
 	}
 }
 

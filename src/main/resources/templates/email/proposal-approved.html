@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Proposal Approved</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			line-height: 1.6;
+			color: #333;
+			max-width: 600px;
+			margin: 0 auto;
+			padding: 20px;
+		}
+		.header {
+			background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+			color: white;
+			padding: 30px;
+			text-align: center;
+			border-radius: 10px 10px 0 0;
+		}
+		.content {
+			background: #f9f9f9;
+			padding: 30px;
+			border-radius: 0 0 10px 10px;
+		}
+		.calculator-info {
+			background: white;
+			padding: 20px;
+			border-radius: 5px;
+			margin: 20px 0;
+			border-left: 4px solid #28a745;
+		}
+		.button {
+			display: inline-block;
+			background: #28a745;
+			color: white;
+			padding: 12px 30px;
+			text-decoration: none;
+			border-radius: 5px;
+			margin: 20px 0;
+		}
+		.footer {
+			text-align: center;
+			color: #666;
+			font-size: 0.9em;
+			margin-top: 30px;
+		}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>✓ Proposal Approved</h1>
+	</div>
+	<div class="content">
+		<p>Hello,</p>
+		<p>Great news! Your calculator proposal has been approved and added to the database:</p>
+		<div class="calculator-info">
+			<h2 th:text="${calculatorModel}">Calculator Model</h2>
+			<p><strong>Manufacturer:</strong> <span th:text="${manufacturer}">Manufacturer</span></p>
+		</div>
+		<p>
+			<a th:href="${calculatorUrl}" class="button">View Calculator</a>
+		</p>
+		<p>Thank you for contributing to the Calculator Collector database!</p>
+	</div>
+	<div class="footer">
+		<p>Calculator Collector</p>
+		<p>This is an automated email. Please do not reply.</p>
+	</div>
+</body>
+</html>
+
+
+
+
+
+

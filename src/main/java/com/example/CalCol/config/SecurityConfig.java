@@ -34,17 +34,19 @@ public class SecurityConfig {
 				.requestMatchers("/uploads/**").permitAll()
 				.requestMatchers("/h2-console/**").permitAll()
 				.requestMatchers("/share/**").permitAll()
+				.requestMatchers("/api/**").authenticated()
 				.requestMatchers("/admin/**").hasRole("ADMIN")
 				.requestMatchers("/profile/**").authenticated()
 				.anyRequest().authenticated()
 			)
 			.csrf(csrf -> csrf
-				.ignoringRequestMatchers("/h2-console/**")
+				.ignoringRequestMatchers("/h2-console/**", "/api/**")
 			)
 			.headers(headers -> headers
 				.frameOptions(frame -> frame.sameOrigin())
 			)
 			.userDetailsService(userDetailsService)
+			.httpBasic(httpBasic -> {}) // Enable HTTP Basic Authentication for REST API
 			.formLogin(form -> form
 				.successHandler(loginSuccessHandler)
 				.permitAll()

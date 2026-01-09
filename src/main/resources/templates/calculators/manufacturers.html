@@ -3,6 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/png" href="/favicon.png">
 	<title>Manufacturers - Calculator Collector</title>
 	<style>
 		body {
@@ -127,6 +129,35 @@
 			text-align: center;
 			color: #666;
 		}
+		.sort-controls {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 20px;
+			align-items: center;
+		}
+		.sort-controls label {
+			font-weight: 500;
+			color: #333;
+		}
+		.sort-controls select {
+			padding: 8px 12px;
+			border: 1px solid #ddd;
+			border-radius: 5px;
+			font-size: 0.9em;
+			cursor: pointer;
+		}
+		.btn-edit {
+			background: #f39c12;
+			margin-left: 5px;
+		}
+		.btn-edit:hover {
+			background: #e67e22;
+		}
+		.manufacturer-card .actions {
+			display: flex;
+			gap: 5px;
+			margin-top: 10px;
+		}
 	</style>
 </head>
 <body>
@@ -156,26 +187,43 @@
 			<h2>Browse Manufacturers</h2>
 			<form th:action="@{/calculators/manufacturers}" method="get" class="search-form">
 				<input type="text" name="search" th:value="${search}" placeholder="Search manufacturers...">
+				<input type="hidden" name="sort" th:value="${sort}">
 				<button type="submit">Search</button>
 				<a th:href="@{/calculators/manufacturers}" class="btn" style="margin-left: 10px;">Clear</a>
 			</form>
 		</div>
 
 		<div th:if="${manufacturers != null && !manufacturers.isEmpty()}">
+			<div class="sort-controls" style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+				<label for="sortSelect">Sort by:</label>
+				<select id="sortSelect" onchange="changeSort(this.value)">
+					<option value="id" th:selected="${sort == null || sort == 'id'}">ID (Default)</option>
+					<option value="name_asc" th:selected="${sort == 'name_asc'}">Name (A-Z)</option>
+					<option value="name_desc" th:selected="${sort == 'name_desc'}">Name (Z-A)</option>
+					<option value="count_desc" th:selected="${sort == 'count_desc'}">Calculator Count (High to Low)</option>
+					<option value="count_asc" th:selected="${sort == 'count_asc'}">Calculator Count (Low to High)</option>
+				</select>
+			</div>
+			
 			<div class="manufacturer-list">
 				<div th:each="manufacturer : ${manufacturers.content}" class="manufacturer-card">
 					<h3 th:text="${manufacturer.name}">Manufacturer Name</h3>
 					<div class="count" th:text="'Calculators: ' + ${manufacturer.calculators.size()}">Calculators: 0</div>
-					<a th:href="@{/calculators(manufacturerId=${manufacturer.id})}" class="btn">View Calculators</a>
+					<div class="actions">
+						<a th:href="@{/calculators(manufacturerId=${manufacturer.id})}" class="btn">View Calculators</a>
+						<sec:authorize="isAuthenticated()">
+							<a th:href="@{/calculators/manufacturers/{id}/edit(id=${manufacturer.id})}" class="btn btn-edit">Edit</a>
+						</sec:authorize>
+					</div>
 				</div>
 			</div>
 
 			<div class="pagination" th:if="${manufacturers.totalPages > 1}">
 				<a th:if="${manufacturers.hasPrevious()}" 
-				   th:href="@{/calculators/manufacturers(search=${search}, page=${manufacturers.number - 1})}">Previous</a>
+				   th:href="@{/calculators/manufacturers(search=${search}, sort=${sort}, page=${manufacturers.number - 1})}">Previous</a>
 				<span th:text="'Page ' + (${manufacturers.number} + 1) + ' of ' + ${manufacturers.totalPages}"></span>
 				<a th:if="${manufacturers.hasNext()}" 
-				   th:href="@{/calculators/manufacturers(search=${search}, page=${manufacturers.number + 1})}">Next</a>
+				   th:href="@{/calculators/manufacturers(search=${search}, sort=${sort}, page=${manufacturers.number + 1})}">Next</a>
 			</div>
 		</div>
 
@@ -184,6 +232,15 @@
 			<p>Try adjusting your search criteria.</p>
 		</div>
 	</div>
+	
+	<script>
+		function changeSort(sortValue) {
+			const url = new URL(window.location.href);
+			url.searchParams.set('sort', sortValue);
+			url.searchParams.set('page', '0'); // Reset to first page when sorting changes
+			window.location.href = url.toString();
+		}
+	</script>
 </body>
 </html>
 

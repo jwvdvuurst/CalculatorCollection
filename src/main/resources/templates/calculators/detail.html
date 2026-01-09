@@ -3,6 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/png" href="/favicon.png">
 	<title th:text="${calculator.model} + ' - Calculator Collector'">Calculator Detail</title>
 	<style>
 		body {
@@ -195,6 +197,32 @@
 					</div>
 				</div>
 				<div style="display: flex; gap: 10px; flex-wrap: wrap;">
+					<sec:authorize="isAuthenticated()">
+						<form th:action="@{/calculators/collection/add/{id}(id=${calculator.id}, redirectTo='detail')}" method="post" style="display: inline;"
+							  th:if="${inCollection == null || !inCollection}">
+							<button type="submit" class="btn" style="background: #667eea; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+								➕ Add to Collection
+							</button>
+						</form>
+						<form th:action="@{/calculators/collection/remove/{id}(id=${calculator.id}, redirectTo='detail')}" method="post" style="display: inline;"
+							  th:if="${inCollection != null && inCollection}">
+							<button type="submit" class="btn" style="background: #e74c3c; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+								➖ Remove from Collection
+							</button>
+						</form>
+						<form th:action="@{/calculators/wishlist/add/{id}(id=${calculator.id}, redirectTo='detail')}" method="post" style="display: inline;"
+							  th:if="${inWishlist == null || !inWishlist}">
+							<button type="submit" class="btn" style="background: #f39c12; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+								⭐ Add to Wishlist
+							</button>
+						</form>
+						<form th:action="@{/calculators/wishlist/remove/{id}(id=${calculator.id}, redirectTo='detail')}" method="post" style="display: inline;"
+							  th:if="${inWishlist != null && inWishlist}">
+							<button type="submit" class="btn" style="background: #e67e22; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">
+								⭐ Remove from Wishlist
+							</button>
+						</form>
+					</sec:authorize>
 					<sec:authorize="hasRole('ADMIN')">
 						<a th:href="@{/admin/calculators/edit/{id}(id=${calculator.id})}" 
 						   class="btn" 
@@ -346,28 +374,66 @@
 		</div>
 
 		<div class="image-section">
-			<h2>External Links</h2>
+			<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+				<h2 style="margin: 0;">External Links</h2>
+				<sec:authorize="isAuthenticated()">
+					<div th:if="${links != null && !links.isEmpty()}" style="display: flex; gap: 10px; align-items: center;">
+						<button type="button" id="toggleSelectionMode" 
+								style="background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.9em;"
+								onclick="toggleSelectionMode()">
+							☑️ Select Links
+						</button>
+						<div id="selectionControls" style="display: none; gap: 10px; align-items: center; flex-direction: row;">
+							<button type="button" onclick="selectAllLinks()" 
+									style="background: #28a745; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.9em;">
+								Select All
+							</button>
+							<button type="button" onclick="selectNoneLinks()" 
+									style="background: #6c757d; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.9em;">
+								Select None
+							</button>
+							<form id="bulkDeleteForm" th:action="@{/calculators/{id}/links/bulk-delete(id=${calculator.id})}" 
+								  method="post" style="display: inline;" onsubmit="return handleBulkDelete(event)">
+								<button type="submit" 
+										style="background: #e74c3c; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 0.9em;">
+									Delete Selected
+								</button>
+							</form>
+						</div>
+					</div>
+				</sec:authorize>
+			</div>
 			<div th:if="${links != null && !links.isEmpty()}" style="margin: 20px 0;">
 				<div style="display: flex; flex-direction: column; gap: 10px;">
 					<div th:each="link : ${links}" 
-						 style="background: #f5f5f5; padding: 15px; border-radius: 5px; border-left: 4px solid #667eea;">
-						<a th:href="${link.url}" target="_blank" 
-						   style="color: #667eea; font-weight: 500; font-size: 1.1em; text-decoration: none;"
-						   th:text="${link.title}">Link Title</a>
-						<p th:if="${link.description != null}" 
-						   style="margin: 5px 0 0 0; color: #666; font-size: 0.9em;" 
-						   th:text="${link.description}">Description</p>
-						<div style="margin-top: 5px; font-size: 0.8em; color: #999;">
-							Added by <span th:text="${link.addedBy}"></span> on 
-							<span th:text="${#temporals.format(link.addedAt, 'yyyy-MM-dd')}"></span>
-							<sec:authorize="isAuthenticated()">
-								<form th:action="@{/calculators/links/{id}/delete(id=${link.id}, calculatorId=${calculator.id})}" 
-									  method="post" style="display: inline; margin-left: 10px;"
-									  th:if="${link.addedBy == username}">
-									<button type="submit" style="background: #e74c3c; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em;"
-											onclick="return confirm('Delete this link?')">Delete</button>
-								</form>
-							</sec:authorize>
+						 class="link-item"
+						 style="background: #f5f5f5; padding: 15px; border-radius: 5px; border-left: 4px solid #667eea; display: flex; align-items: start; gap: 10px;">
+						<div class="link-checkbox" style="display: none; margin-top: 5px;"
+							 th:if="${link.addedBy == username}">
+							<input type="checkbox" name="selectedLinks" th:value="${link.id}" 
+								   style="width: 18px; height: 18px; cursor: pointer;">
+						</div>
+						<div style="flex: 1;">
+							<a th:href="${link.url}" target="_blank" 
+							   style="color: #667eea; font-weight: 500; font-size: 1.1em; text-decoration: none;"
+							   th:text="${link.title}">Link Title</a>
+							<p th:if="${link.description != null}" 
+							   style="margin: 5px 0 0 0; color: #666; font-size: 0.9em;" 
+							   th:text="${link.description}">Description</p>
+							<div style="margin-top: 5px; font-size: 0.8em; color: #999;">
+								Added by <span th:text="${link.addedBy}"></span> on 
+								<span th:text="${#temporals.format(link.addedAt, 'yyyy-MM-dd')}"></span>
+								<sec:authorize="isAuthenticated()">
+									<form th:action="@{/calculators/links/{id}/delete(id=${link.id})}" 
+										  method="post" style="display: inline; margin-left: 10px;"
+										  class="single-delete-form"
+										  th:if="${link.addedBy == username}">
+										<input type="hidden" name="calculatorId" th:value="${calculator.id}">
+										<button type="submit" style="background: #e74c3c; color: white; border: none; padding: 3px 8px; border-radius: 3px; cursor: pointer; font-size: 0.8em;"
+												onclick="return confirm('Delete this link?')">Delete</button>
+									</form>
+								</sec:authorize>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -404,6 +470,84 @@
 			</sec:authorize>
 		</div>
 	</div>
+
+	<script>
+		let selectionMode = false;
+
+		function toggleSelectionMode() {
+			selectionMode = !selectionMode;
+			const checkboxes = document.querySelectorAll('.link-checkbox');
+			const controls = document.getElementById('selectionControls');
+			const toggleBtn = document.getElementById('toggleSelectionMode');
+			const singleDeleteForms = document.querySelectorAll('.single-delete-form');
+
+			if (selectionMode) {
+				// Show checkboxes and controls
+				checkboxes.forEach(cb => cb.style.display = 'block');
+				controls.style.display = 'flex';
+				toggleBtn.textContent = '✖️ Cancel Selection';
+				toggleBtn.style.background = '#6c757d';
+				// Hide individual delete buttons
+				singleDeleteForms.forEach(form => form.style.display = 'none');
+			} else {
+				// Hide checkboxes and controls
+				checkboxes.forEach(cb => cb.style.display = 'none');
+				controls.style.display = 'none';
+				toggleBtn.textContent = '☑️ Select Links';
+				toggleBtn.style.background = '#667eea';
+				// Show individual delete buttons
+				singleDeleteForms.forEach(form => form.style.display = 'inline');
+				// Uncheck all
+				document.querySelectorAll('input[name="selectedLinks"]').forEach(cb => cb.checked = false);
+			}
+		}
+
+		function selectAllLinks() {
+			document.querySelectorAll('input[name="selectedLinks"]:not(:disabled)').forEach(cb => {
+				cb.checked = true;
+			});
+		}
+
+		function selectNoneLinks() {
+			document.querySelectorAll('input[name="selectedLinks"]').forEach(cb => {
+				cb.checked = false;
+			});
+		}
+
+		function handleBulkDelete(event) {
+			event.preventDefault();
+			const selected = document.querySelectorAll('input[name="selectedLinks"]:checked');
+			if (selected.length === 0) {
+				alert('Please select at least one link to delete.');
+				return false;
+			}
+			
+			if (!confirm('Are you sure you want to delete ' + selected.length + ' selected link(s)?')) {
+				return false;
+			}
+			
+			// Collect selected link IDs
+			const linkIds = Array.from(selected).map(cb => cb.value);
+			
+			// Get the form and clear any existing hidden inputs for selectedLinks
+			const form = document.getElementById('bulkDeleteForm');
+			const existingInputs = form.querySelectorAll('input[name="selectedLinks"][type="hidden"]');
+			existingInputs.forEach(input => input.remove());
+			
+			// Add hidden inputs to the form with selected link IDs
+			linkIds.forEach(linkId => {
+				const input = document.createElement('input');
+				input.type = 'hidden';
+				input.name = 'selectedLinks';
+				input.value = linkId;
+				form.appendChild(input);
+			});
+			
+			// Submit the form
+			form.submit();
+			return false;
+		}
+	</script>
 </body>
 </html>
 

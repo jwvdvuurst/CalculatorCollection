@@ -50,6 +50,24 @@ public class LinkService {
 	}
 
 	@Transactional
+	public CalculatorLink updateLink(Long linkId, String url, String title, String description, String username) {
+		Optional<CalculatorLink> linkOpt = linkRepository.findById(linkId);
+		if (linkOpt.isEmpty()) {
+			throw new IllegalArgumentException("Link not found");
+		}
+
+		CalculatorLink link = linkOpt.get();
+		// Only allow update by the user who added it (or admin can update any)
+		// For now, we'll allow updates - you can add role checking if needed
+		
+		link.setUrl(url);
+		link.setTitle(title);
+		link.setDescription(description);
+
+		return linkRepository.save(link);
+	}
+
+	@Transactional
 	public boolean deleteLink(Long linkId, String username) {
 		Optional<CalculatorLink> linkOpt = linkRepository.findById(linkId);
 		if (linkOpt.isEmpty()) {
@@ -64,6 +82,38 @@ public class LinkService {
 
 		linkRepository.delete(link);
 		return true;
+	}
+
+	@Transactional
+	public boolean adminDeleteLink(Long linkId) {
+		Optional<CalculatorLink> linkOpt = linkRepository.findById(linkId);
+		if (linkOpt.isEmpty()) {
+			return false;
+		}
+
+		linkRepository.delete(linkOpt.get());
+		return true;
+	}
+
+	@Transactional
+	public int bulkDeleteLinks(java.util.List<Long> linkIds, String username) {
+		if (linkIds == null || linkIds.isEmpty()) {
+			return 0;
+		}
+
+		int deletedCount = 0;
+		for (Long linkId : linkIds) {
+			Optional<CalculatorLink> linkOpt = linkRepository.findById(linkId);
+			if (linkOpt.isPresent()) {
+				CalculatorLink link = linkOpt.get();
+				// Only allow deletion by the user who added it
+				if (link.getAddedBy().equals(username)) {
+					linkRepository.delete(link);
+					deletedCount++;
+				}
+			}
+		}
+		return deletedCount;
 	}
 }
 

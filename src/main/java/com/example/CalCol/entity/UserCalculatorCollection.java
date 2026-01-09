@@ -33,9 +33,14 @@ public class UserCalculatorCollection {
 	@Column(name = "added_at", nullable = false)
 	private LocalDateTime addedAt;
 
+	@Column(name = "notes", length = 2000)
+	private String notes;
+
 	@PrePersist
 	protected void onCreate() {
-		addedAt = LocalDateTime.now();
+		if (addedAt == null) {
+			addedAt = LocalDateTime.now();
+		}
 	}
 }
 

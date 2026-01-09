@@ -3,6 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<link rel="icon" type="image/png" href="/favicon.png">
 	<title>Browse Calculators - Calculator Collector</title>
 	<style>
 		body {
@@ -181,6 +183,7 @@
 			<a href="/calculators/manufacturers">Manufacturers</a>
 			<sec:authorize="isAuthenticated()">
 				<a href="/calculators/collection">My Collection</a>
+				<a href="/calculators/wishlist">My Wishlist</a>
 			</sec:authorize>
 		</div>
 		<div>
@@ -226,19 +229,39 @@
 						<span th:if="${calc.soldTo != null}" th:text="' - ' + ${calc.soldTo}"></span>
 					</div>
 					<div class="actions">
-						<a th:href="@{/calculators/{id}(id=${calc.id})}" class="btn" style="background: #6c757d; margin-bottom: 5px;">View Details</a>
+						<a th:href="@{/calculators/{id}(id=${calc.id})}" class="btn" style="background: #6c757d; margin-bottom: 5px; display: block; text-align: center;">View Details</a>
 						<sec:authorize="isAuthenticated()">
-							<form th:action="@{/calculators/collection/add/{id}(id=${calc.id})}" method="post" style="display: inline;" 
+							<form th:action="@{/calculators/collection/add/{id}(id=${calc.id})}" method="post" style="display: inline; margin-bottom: 5px;" 
 								  th:if="${collectionIds == null || !collectionIds.contains(calc.id)}">
-								<button type="submit" class="btn btn-primary">Add to Collection</button>
+								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
+								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="page" th:value="${calculators.number}">
+								<button type="submit" class="btn btn-primary" style="width: 100%;">➕ Add to Collection</button>
 							</form>
-							<form th:action="@{/calculators/collection/remove/{id}(id=${calc.id})}" method="post" style="display: inline;"
+							<form th:action="@{/calculators/collection/remove/{id}(id=${calc.id})}" method="post" style="display: inline; margin-bottom: 5px;"
 								  th:if="${collectionIds != null && collectionIds.contains(calc.id)}">
-								<button type="submit" class="btn btn-danger">Remove from Collection</button>
+								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
+								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="page" th:value="${calculators.number}">
+								<button type="submit" class="btn btn-danger" style="width: 100%;">➖ Remove from Collection</button>
+							</form>
+							<form th:action="@{/calculators/wishlist/add/{id}(id=${calc.id})}" method="post" style="display: inline; margin-bottom: 5px;"
+								  th:if="${wishlistIds == null || !wishlistIds.contains(calc.id)}">
+								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
+								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="page" th:value="${calculators.number}">
+								<button type="submit" class="btn" style="background: #f39c12; color: white; width: 100%;">⭐ Add to Wishlist</button>
+							</form>
+							<form th:action="@{/calculators/wishlist/remove/{id}(id=${calc.id})}" method="post" style="display: inline;"
+								  th:if="${wishlistIds != null && wishlistIds.contains(calc.id)}">
+								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
+								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="page" th:value="${calculators.number}">
+								<button type="submit" class="btn" style="background: #e67e22; color: white; width: 100%;">⭐ Remove from Wishlist</button>
 							</form>
 						</sec:authorize>
 						<sec:authorize="!isAuthenticated()">
-							<a href="/login" class="btn btn-primary">Login to Add</a>
+							<a href="/login" class="btn btn-primary" style="display: block; text-align: center;">Login to Add</a>
 						</sec:authorize>
 					</div>
 				</div>

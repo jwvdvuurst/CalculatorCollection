@@ -71,6 +71,7 @@ public class CollectionRestController {
 	@Operation(summary = "Add calculator to collection", description = "Add a calculator to the authenticated user's collection")
 	public ResponseEntity<ApiResponse<Void>> addToCollection(
 			@Parameter(description = "Calculator ID to add") @PathVariable Long calculatorId,
+			@Parameter(description = "Optional notes") @RequestParam(required = false) String notes,
 			Authentication authentication) {
 
 		if (authentication == null || !authentication.isAuthenticated()) {
@@ -79,7 +80,7 @@ public class CollectionRestController {
 		}
 
 		String username = authentication.getName();
-		boolean added = calculatorService.addToCollection(username, calculatorId);
+		boolean added = calculatorService.addToCollection(username, calculatorId, notes);
 
 		if (added) {
 			return ResponseEntity.ok(ApiResponse.success("Calculator added to collection", null));
@@ -148,6 +149,29 @@ public class CollectionRestController {
 		Long count = calculatorService.getUserCollectionCount(username);
 
 		return ResponseEntity.ok(ApiResponse.success(Map.of("count", count)));
+	}
+
+	@PutMapping("/{calculatorId}/notes")
+	@Operation(summary = "Update collection notes", description = "Update notes for a calculator in the collection")
+	public ResponseEntity<ApiResponse<Void>> updateCollectionNotes(
+			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
+			@Parameter(description = "Notes") @RequestParam(required = false) String notes,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		String username = authentication.getName();
+		boolean updated = calculatorService.updateCollectionNotes(username, calculatorId, notes);
+
+		if (updated) {
+			return ResponseEntity.ok(ApiResponse.success("Notes updated successfully", null));
+		} else {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Calculator not found in collection"));
+		}
 	}
 }
 

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Collection Summary</title>
+	<style>
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			line-height: 1.6;
+			color: #333;
+			max-width: 600px;
+			margin: 0 auto;
+			padding: 20px;
+		}
+		.header {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			padding: 30px;
+			text-align: center;
+			border-radius: 10px 10px 0 0;
+		}
+		.content {
+			background: #f9f9f9;
+			padding: 30px;
+			border-radius: 0 0 10px 10px;
+		}
+		.stats {
+			background: white;
+			padding: 20px;
+			border-radius: 5px;
+			margin: 20px 0;
+		}
+		.stat-item {
+			margin: 10px 0;
+			padding: 10px;
+			background: #f0f0f0;
+			border-radius: 3px;
+		}
+		.button {
+			display: inline-block;
+			background: #667eea;
+			color: white;
+			padding: 12px 30px;
+			text-decoration: none;
+			border-radius: 5px;
+			margin: 20px 0;
+		}
+		.footer {
+			text-align: center;
+			color: #666;
+			font-size: 0.9em;
+			margin-top: 30px;
+		}
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>Your Collection Summary</h1>
+	</div>
+	<div class="content">
+		<p>Hello <strong th:text="${username}">User</strong>,</p>
+		<p>Here's a summary of your calculator collection:</p>
+		<div class="stats">
+			<h2>Total Calculators: <span th:text="${collectionCount}">0</span></h2>
+			<div th:if="${byManufacturer != null and !byManufacturer.isEmpty()}">
+				<h3>By Manufacturer:</h3>
+				<div class="stat-item" th:each="entry : ${byManufacturer}">
+					<strong th:text="${entry.key}">Manufacturer</strong>: <span th:text="${entry.value}">0</span>
+				</div>
+			</div>
+			<div th:if="${recentAdditions != null and !recentAdditions.isEmpty()}">
+				<h3>Recent Additions:</h3>
+				<ul>
+					<li th:each="addition : ${recentAdditions}" th:text="${addition}">Calculator</li>
+				</ul>
+			</div>
+		</div>
+		<p>
+			<a th:href="${baseUrl} + '/calculators/collection'" class="button">View Your Collection</a>
+		</p>
+	</div>
+	<div class="footer">
+		<p>Calculator Collector</p>
+		<p>This is an automated email. Please do not reply.</p>
+	</div>
+</body>
+</html>
+
+
+
+
+
+
