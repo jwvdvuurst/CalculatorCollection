@@ -112,16 +112,19 @@ public class AuthController {
 						"resetUrl", resetUrl
 					);
 					emailService.sendHtmlEmail(email, "Password Reset Request", "email/password-reset", variables);
-					log.info("Password reset email sent to: {}", email);
-				} catch (Exception e) {
-					log.error("Failed to send password reset email: {}", e.getMessage(), e);
+					log.info("Password reset email sent successfully to: {}", email);
+				} catch (RuntimeException e) {
+					log.error("Failed to send password reset email to {}: {}", email, e.getMessage(), e);
 					// Don't reveal error to user, but log it
+				} catch (Exception e) {
+					log.error("Unexpected error sending password reset email to {}: {}", email, e.getMessage(), e);
 				}
 			} else {
-				log.warn("Email service not configured. Password reset token: {}", token.getToken());
-				// In a real application, you might want to show the token to the user if email is not configured
-				// For security, we'll just log it and show the generic success message
+				log.warn("Email service not configured. Password reset token generated but email not sent. Token: {}", token.getToken());
+				log.warn("To enable email functionality, configure spring.mail.host in application.properties");
 			}
+		} else {
+			log.debug("Password reset token not created - username/email mismatch or user not found");
 		}
 
 		return "redirect:/forgot-password";

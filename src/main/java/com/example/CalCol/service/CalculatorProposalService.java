@@ -6,7 +6,10 @@ import com.example.CalCol.entity.Manufacturer;
 import com.example.CalCol.repository.CalculatorProposalRepository;
 import com.example.CalCol.repository.CalculatorRepository;
 import com.example.CalCol.repository.ManufacturerRepository;
+import com.example.CalCol.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -17,11 +20,16 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CalculatorProposalService {
 
 	private final CalculatorProposalRepository proposalRepository;
 	private final CalculatorRepository calculatorRepository;
 	private final ManufacturerRepository manufacturerRepository;
+	private final UserRepository userRepository;
+	
+	@Autowired(required = false)
+	private EmailService emailService;
 
 	public Page<CalculatorProposal> getPendingProposals(Pageable pageable) {
 		return proposalRepository.findByIsApprovedFalse(pageable);
@@ -80,6 +88,25 @@ public class CalculatorProposalService {
 		proposal.setApprovedAt(LocalDateTime.now());
 		proposalRepository.save(proposal);
 
+		// Send email notification if email service is available
+		if (emailService != null && proposal.getProposedBy() != null) {
+			userRepository.findByUsername(proposal.getProposedBy()).ifPresent(user -> {
+				if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+					try {
+						emailService.sendProposalApprovedEmail(
+							user.getEmail(),
+							calculator.getModel(),
+							manufacturer.getName(),
+							calculator.getId()
+						);
+						log.info("Proposal approval email sent to: {}", user.getEmail());
+					} catch (Exception e) {
+						log.error("Failed to send proposal approval email to {}: {}", user.getEmail(), e.getMessage(), e);
+					}
+				}
+			});
+		}
+
 		return true;
 	}
 
@@ -89,7 +116,32 @@ public class CalculatorProposalService {
 		if (proposalOpt.isEmpty()) {
 			return false;
 		}
-		proposalRepository.delete(proposalOpt.get());
+		
+		CalculatorProposal proposal = proposalOpt.get();
+		String model = proposal.getModel();
+		String manufacturer = proposal.getManufacturerName();
+		String proposedBy = proposal.getProposedBy();
+		
+		// Send email notification if email service is available
+		if (emailService != null && proposedBy != null) {
+			userRepository.findByUsername(proposedBy).ifPresent(user -> {
+				if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
+					try {
+						emailService.sendProposalRejectedEmail(
+							user.getEmail(),
+							model,
+							manufacturer,
+							"Proposal was rejected by an administrator."
+						);
+						log.info("Proposal rejection email sent to: {}", user.getEmail());
+					} catch (Exception e) {
+						log.error("Failed to send proposal rejection email to {}: {}", user.getEmail(), e.getMessage(), e);
+					}
+				}
+			});
+		}
+		
+		proposalRepository.delete(proposal);
 		return true;
 	}
 }

@@ -240,6 +240,9 @@
 				<a th:href="@{/calculators/collection/export(format='json')}" class="btn btn-primary">Export as JSON</a>
 				<a th:href="@{/calculators/collection/export(format='csv')}" class="btn btn-primary">Export as CSV</a>
 				<a th:href="@{/calculators/collection/share}" class="btn btn-primary">Share Collection</a>
+				<form th:if="${emailServiceAvailable}" th:action="@{/calculators/collection/send-summary-email}" method="post" style="display: inline;">
+					<button type="submit" class="btn btn-primary" style="background: #28a745;">Send Collection Summary Email</button>
+				</form>
 			</div>
 			<div style="margin-top: 10px;">
 				<form th:action="@{/calculators/collection/import}" method="post" enctype="multipart/form-data" style="display: inline;">

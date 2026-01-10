@@ -2,6 +2,7 @@ package com.example.CalCol.controller;
 
 import com.example.CalCol.service.CalculatorService;
 import com.example.CalCol.service.CalculatorProposalService;
+import com.example.CalCol.service.EmailService;
 import com.example.CalCol.service.EnrichmentService;
 import com.example.CalCol.service.ExportService;
 import com.example.CalCol.service.ImageService;
@@ -11,8 +12,10 @@ import com.example.CalCol.service.LinkService;
 import com.example.CalCol.service.ShareService;
 import com.example.CalCol.service.SocialMediaPostService;
 import com.example.CalCol.service.StatisticsService;
+import com.example.CalCol.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -40,6 +43,11 @@ public class CalculatorController {
 	private final EnrichmentService enrichmentService;
 	private final SocialMediaPostService socialMediaPostService;
 	private final com.example.CalCol.service.WishlistService wishlistService;
+	private final UserService userService;
+	
+	@Autowired(required = false)
+	private EmailService emailService;
+	
 	private static final int PAGE_SIZE = 20;
 
 	@GetMapping
@@ -190,8 +198,75 @@ public class CalculatorController {
 		model.addAttribute("collectionCount", calculatorService.getUserCollectionCount(username));
 		model.addAttribute("username", username);
 		model.addAttribute("statistics", statisticsService.getCollectionStatistics(username));
+		model.addAttribute("emailServiceAvailable", emailService != null);
 
 		return "calculators/collection";
+	}
+
+	@PostMapping("/collection/send-summary-email")
+	public String sendCollectionSummaryEmail(
+			Authentication authentication,
+			RedirectAttributes redirectAttributes) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		if (emailService == null) {
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"Email service is not configured. Please configure email settings in application.properties.");
+			return "redirect:/calculators/collection";
+		}
+
+		String username = authentication.getName();
+		try {
+			// Get user email
+			com.example.CalCol.entity.AppUser user = userService.getUserByUsername(username)
+				.orElseThrow(() -> new IllegalArgumentException("User not found"));
+			
+			if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+				redirectAttributes.addFlashAttribute("errorMessage", 
+					"Your account does not have an email address configured. Please update your profile.");
+				return "redirect:/calculators/collection";
+			}
+
+			// Get collection statistics
+			java.util.Map<String, Object> stats = statisticsService.getCollectionStatistics(username);
+			
+			// Prepare data for email
+			@SuppressWarnings("unchecked")
+			java.util.Map<String, Long> byManufacturer = stats.get("byManufacturer") != null 
+				? (java.util.Map<String, Long>) stats.get("byManufacturer")
+				: java.util.Map.of();
+			
+			long totalCount = stats.get("total") != null 
+				? ((Number) stats.get("total")).longValue()
+				: 0L;
+			
+			// Get recent additions (last 10)
+			java.util.List<String> recentAdditions = calculatorService.getUserCollection(username, 
+				org.springframework.data.domain.PageRequest.of(0, 10))
+				.getContent().stream()
+				.map(item -> item.getCalculator().getManufacturer().getName() + " " + item.getCalculator().getModel())
+				.collect(java.util.stream.Collectors.toList());
+
+			emailService.sendCollectionSummaryEmail(
+				user.getEmail(),
+				username,
+				totalCount,
+				byManufacturer,
+				recentAdditions
+			);
+
+			redirectAttributes.addFlashAttribute("successMessage", 
+				"Collection summary email sent to " + user.getEmail() + "!");
+		} catch (Exception e) {
+			log.error("Failed to send collection summary email: {}", e.getMessage(), e);
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"Failed to send collection summary email: " + e.getMessage());
+		}
+
+		return "redirect:/calculators/collection";
 	}
 
 	@GetMapping("/wishlist")
@@ -860,6 +935,7 @@ public class CalculatorController {
 		model.addAttribute("collection", calculatorService.getUserCollection(username, 
 			org.springframework.data.domain.Pageable.unpaged()).getContent());
 		model.addAttribute("shares", shareService.getUserShares(username));
+		model.addAttribute("emailServiceAvailable", emailService != null);
 		return "calculators/share";
 	}
 
@@ -870,6 +946,7 @@ public class CalculatorController {
 			@RequestParam(required = false) String description,
 			@RequestParam(required = false) Integer daysValid,
 			@RequestParam(value = "isPublic", defaultValue = "false") boolean isPublic,
+			@RequestParam(required = false) String emailTo,
 			Authentication authentication,
 			RedirectAttributes redirectAttributes) {
 
@@ -881,10 +958,25 @@ public class CalculatorController {
 			String username = authentication.getName();
 			com.example.CalCol.entity.SharedCollection share = shareService.createShare(
 				username, calculatorIds, title, description, daysValid, isPublic);
-			redirectAttributes.addFlashAttribute("successMessage", 
-				"Collection shared! Share link: " + 
-				org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentContextPath()
-					.path("/share/" + share.getShareToken()).toUriString());
+			
+			String shareUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder.fromCurrentContextPath()
+				.path("/calculators/share/" + share.getShareToken()).toUriString();
+			
+			// Send email if provided and email service is available
+			if (emailTo != null && !emailTo.trim().isEmpty() && emailService != null) {
+				try {
+					emailService.sendCollectionSharedEmail(emailTo, username, title, shareUrl);
+					redirectAttributes.addFlashAttribute("successMessage", 
+						"Collection shared! Share link sent to " + emailTo + ". Link: " + shareUrl);
+				} catch (Exception e) {
+					log.error("Failed to send share email to {}: {}", emailTo, e.getMessage(), e);
+					redirectAttributes.addFlashAttribute("successMessage", 
+						"Collection shared! Share link: " + shareUrl + " (Email sending failed)");
+				}
+			} else {
+				redirectAttributes.addFlashAttribute("successMessage", 
+					"Collection shared! Share link: " + shareUrl);
+			}
 		} catch (Exception e) {
 			redirectAttributes.addFlashAttribute("errorMessage", 
 				"Failed to create share: " + e.getMessage());
