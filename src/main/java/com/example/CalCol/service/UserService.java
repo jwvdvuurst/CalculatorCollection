@@ -1,6 +1,8 @@
 package com.example.CalCol.service;
 
 import com.example.CalCol.entity.AppUser;
+import com.example.CalCol.entity.PasswordResetToken;
+import com.example.CalCol.repository.PasswordResetTokenRepository;
 import com.example.CalCol.repository.UserRepository;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
@@ -9,17 +11,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class UserService {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final PasswordResetTokenRepository passwordResetTokenRepository;
 
-	public UserService(UserRepository userRepository, @Lazy PasswordEncoder passwordEncoder) {
+	public UserService(UserRepository userRepository, @Lazy PasswordEncoder passwordEncoder,
+			PasswordResetTokenRepository passwordResetTokenRepository) {
 		this.userRepository = userRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.passwordResetTokenRepository = passwordResetTokenRepository;
 	}
 
 	public Page<AppUser> getAllUsers(Pageable pageable) {
@@ -137,6 +144,66 @@ public class UserService {
 			user.setLastLogin(java.time.LocalDateTime.now());
 			userRepository.save(user);
 		});
+	}
+
+	@Transactional
+	public Optional<PasswordResetToken> createPasswordResetToken(String username, String email) {
+		Optional<AppUser> userOpt = userRepository.findByUsername(username);
+		if (userOpt.isEmpty()) {
+			return Optional.empty();
+		}
+
+		AppUser user = userOpt.get();
+		
+		// Verify email matches
+		if (!user.getEmail().equalsIgnoreCase(email)) {
+			return Optional.empty();
+		}
+
+		// Delete any existing tokens for this user
+		passwordResetTokenRepository.deleteByUser_Id(user.getId());
+
+		// Create new token
+		String token = UUID.randomUUID().toString();
+		PasswordResetToken resetToken = new PasswordResetToken();
+		resetToken.setToken(token);
+		resetToken.setUser(user);
+		resetToken.setExpiresAt(LocalDateTime.now().plusHours(24));
+		resetToken.setUsed(false);
+
+		return Optional.of(passwordResetTokenRepository.save(resetToken));
+	}
+
+	@Transactional
+	public boolean resetPassword(String token, String newPassword) {
+		Optional<PasswordResetToken> tokenOpt = passwordResetTokenRepository.findByToken(token);
+		if (tokenOpt.isEmpty()) {
+			return false;
+		}
+
+		PasswordResetToken resetToken = tokenOpt.get();
+		if (!resetToken.isValid()) {
+			return false;
+		}
+
+		AppUser user = resetToken.getUser();
+		user.setPassword(passwordEncoder.encode(newPassword));
+		userRepository.save(user);
+
+		// Mark token as used
+		resetToken.setUsed(true);
+		passwordResetTokenRepository.save(resetToken);
+
+		return true;
+	}
+
+	@Transactional
+	public void cleanupExpiredTokens() {
+		passwordResetTokenRepository.deleteByExpiresAtBefore(LocalDateTime.now());
+	}
+
+	public Optional<PasswordResetToken> getPasswordResetToken(String token) {
+		return passwordResetTokenRepository.findByToken(token);
 	}
 }
 

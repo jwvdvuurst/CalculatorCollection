@@ -136,12 +136,14 @@
 		<div style="margin: 30px 0; text-align: center;">
 			<a href="/calculators" class="logout-btn" style="margin: 10px;">Browse Calculators</a>
 			<a href="/calculators/manufacturers" class="logout-btn" style="margin: 10px;">Browse Manufacturers</a>
-			<sec:authorize="isAuthenticated()">
-				<a href="/calculators/collection" class="logout-btn" style="margin: 10px;">My Collection</a>
-			</sec:authorize>
-			<sec:authorize="hasRole('ADMIN')">
-				<a href="/admin/dashboard" class="logout-btn" style="margin: 10px; background: #dc3545;">Admin Dashboard</a>
-			</sec:authorize>
+		</div>
+		
+		<div th:if="${isAuthenticated}" style="margin: 30px 0; text-align: center;">
+			<a href="/calculators/collection" class="logout-btn" style="margin: 10px;">My Collection</a>
+		</div>
+		
+		<div th:if="${isAdmin}" style="margin: 30px 0; text-align: center;">
+			<a href="/admin/dashboard" class="logout-btn" style="margin: 10px; background: #dc3545;">Admin Dashboard</a>
 		</div>
 
 		<div sec:authorize="isAuthenticated()">
@@ -158,13 +160,6 @@
 		</div>
 
 		<div sec:authorize="!isAuthenticated()">
-			<div class="credentials">
-				<h3>Test Credentials</h3>
-				<ul>
-					<li><strong>Admin:</strong> username: <code>admin</code>, password: <code>admin</code></li>
-					<li><strong>User:</strong> username: <code>user</code>, password: <code>user</code></li>
-				</ul>
-			</div>
 			<div class="login-form">
 				<form th:action="@{/login}" method="post">
 					<div class="form-group">
@@ -176,6 +171,12 @@
 						<input type="password" id="password" name="password" required>
 					</div>
 					<button type="submit" class="login-btn">Login</button>
+					<div style="margin-top: 15px; text-align: center;">
+						<a href="/register" style="color: #667eea; text-decoration: none; font-size: 0.9em;">Create an account</a>
+					</div>
+					<div style="margin-top: 10px; text-align: center;">
+						<a href="/forgot-password" style="color: #667eea; text-decoration: none; font-size: 0.9em;">Forgot password?</a>
+					</div>
 				</form>
 			</div>
 		</div>
