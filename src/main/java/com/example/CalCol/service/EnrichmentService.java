@@ -185,6 +185,22 @@ public class EnrichmentService {
 	private String buildEnhancedSearchQuery(Calculator calculator) {
 		StringBuilder query = new StringBuilder();
 		
+		// Get calculator labels to check for Mechanical/Electromechanical
+		List<Label> labels = calculatorLabelRepository.findLabelsByCalculatorId(calculator.getId());
+		String calculatorType = "electronic"; // default
+		
+		// Check if calculator has Mechanical or Electromechanical label
+		for (Label label : labels) {
+			String labelName = label.getName();
+			if ("Mechanical".equalsIgnoreCase(labelName)) {
+				calculatorType = "mechanical";
+				break; // Prefer Mechanical over Electromechanical if both exist
+			} else if ("Electromechanical".equalsIgnoreCase(labelName)) {
+				calculatorType = "electromechanical";
+				// Don't break, in case Mechanical is also present (which would override)
+			}
+		}
+		
 		// Add manufacturer and model
 		query.append(calculator.getManufacturer().getName()).append(" ");
 		query.append(calculator.getModel());
@@ -197,8 +213,8 @@ public class EnrichmentService {
 			query.append(" ").append(calculator.getSoldTo());
 		}
 		
-		// Add "calculator" keyword
-		query.append(" calculator");
+		// Add calculator type (electronic, mechanical, or electromechanical)
+		query.append(" ").append(calculatorType).append(" calculator");
 		
 		// Add "vintage" keyword, except when from year > 2000
 		if (calculator.getSoldFrom() == null || calculator.getSoldFrom() <= 2000) {

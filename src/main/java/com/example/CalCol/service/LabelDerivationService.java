@@ -44,6 +44,8 @@ public class LabelDerivationService {
 		keywords.put("desktop", "Desktop");
 		keywords.put("rpn", "RPN");
 		keywords.put("algebraic", "Algebraic");
+		keywords.put("mechanical", "Mechanical");
+		keywords.put("electromechanical", "Electromechanical");
 		return keywords;
 	}
 

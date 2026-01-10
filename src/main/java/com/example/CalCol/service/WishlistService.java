@@ -1,7 +1,9 @@
 package com.example.CalCol.service;
 
 import com.example.CalCol.entity.Calculator;
+import com.example.CalCol.entity.Label;
 import com.example.CalCol.entity.WishlistItem;
+import com.example.CalCol.repository.CalculatorLabelRepository;
 import com.example.CalCol.repository.CalculatorRepository;
 import com.example.CalCol.repository.WishlistItemRepository;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -18,6 +21,7 @@ public class WishlistService {
 
 	private final WishlistItemRepository wishlistRepository;
 	private final CalculatorRepository calculatorRepository;
+	private final CalculatorLabelRepository calculatorLabelRepository;
 
 	public Page<WishlistItem> getUserWishlist(String username, Pageable pageable) {
 		return wishlistRepository.findByUsernameOrderByAddedAtDesc(username, pageable);
@@ -60,12 +64,29 @@ public class WishlistService {
 	
 	/**
 	 * Generate a default search query from calculator manufacturer and model
-	 * Format: "[vintage] [manufacturer] [model] electronic calculator"
+	 * Format: "[vintage] [manufacturer] [model] [type] calculator"
 	 * "vintage" is included if soldFrom is null or <= 2000 (same logic as enrichment service)
+	 * Type is "electronic", "mechanical", or "electromechanical" based on calculator labels
 	 */
 	private String generateDefaultSearchQuery(Calculator calculator) {
 		if (calculator == null) {
 			return null;
+		}
+		
+		// Get calculator labels to check for Mechanical/Electromechanical
+		List<Label> labels = calculatorLabelRepository.findLabelsByCalculatorId(calculator.getId());
+		String calculatorType = "electronic"; // default
+		
+		// Check if calculator has Mechanical or Electromechanical label
+		for (Label label : labels) {
+			String labelName = label.getName();
+			if ("Mechanical".equalsIgnoreCase(labelName)) {
+				calculatorType = "mechanical";
+				break; // Prefer Mechanical over Electromechanical if both exist
+			} else if ("Electromechanical".equalsIgnoreCase(labelName)) {
+				calculatorType = "electromechanical";
+				// Don't break, in case Mechanical is also present (which would override)
+			}
 		}
 		
 		StringBuilder query = new StringBuilder();
@@ -89,9 +110,9 @@ public class WishlistService {
 			query.append(calculator.getModel().trim());
 		}
 		
-		// Add "electronic calculator" for better search results
+		// Add calculator type (electronic, mechanical, or electromechanical)
 		if (query.length() > 0) {
-			query.append(" electronic calculator");
+			query.append(" ").append(calculatorType).append(" calculator");
 		}
 		
 		return query.length() > 0 ? query.toString().trim() : null;
