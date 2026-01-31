@@ -22,6 +22,27 @@ public interface CalculatorRepository extends JpaRepository<Calculator, Long> {
 			"LOWER(c.manufacturer.name) LIKE LOWER(CONCAT('%', :search, '%'))")
 	Page<Calculator> searchByModelOrManufacturer(@Param("search") String search, Pageable pageable);
 
+	@Query("SELECT c FROM Calculator c WHERE c.currentPrice IS NOT NULL AND " +
+			"c.currentPrice >= :minPrice AND c.currentPrice <= :maxPrice")
+	Page<Calculator> findByPriceRange(@Param("minPrice") java.math.BigDecimal minPrice, 
+									  @Param("maxPrice") java.math.BigDecimal maxPrice, 
+									  Pageable pageable);
+
+	@Query("SELECT c FROM Calculator c WHERE c.manufacturer.id = :manufacturerId AND " +
+			"c.currentPrice IS NOT NULL AND c.currentPrice >= :minPrice AND c.currentPrice <= :maxPrice")
+	Page<Calculator> findByManufacturerIdAndPriceRange(@Param("manufacturerId") Long manufacturerId,
+													   @Param("minPrice") java.math.BigDecimal minPrice,
+													   @Param("maxPrice") java.math.BigDecimal maxPrice,
+													   Pageable pageable);
+
+	@Query("SELECT c FROM Calculator c WHERE (LOWER(c.model) LIKE LOWER(CONCAT('%', :search, '%')) OR " +
+			"LOWER(c.manufacturer.name) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+			"c.currentPrice IS NOT NULL AND c.currentPrice >= :minPrice AND c.currentPrice <= :maxPrice")
+	Page<Calculator> searchByModelOrManufacturerAndPriceRange(@Param("search") String search,
+															  @Param("minPrice") java.math.BigDecimal minPrice,
+															  @Param("maxPrice") java.math.BigDecimal maxPrice,
+															  Pageable pageable);
+
 	@Query("SELECT c FROM Calculator c JOIN FETCH c.manufacturer")
 	java.util.List<Calculator> findAllWithManufacturer();
 	

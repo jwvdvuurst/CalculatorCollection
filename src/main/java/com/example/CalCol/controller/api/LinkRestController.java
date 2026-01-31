@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -71,6 +72,36 @@ public class LinkRestController {
 		}
 	}
 
+	@PutMapping("/{linkId}")
+	@Operation(summary = "Update link", description = "Update an existing link on a calculator")
+	public ResponseEntity<ApiResponse<LinkDTO>> updateLink(
+			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
+			@Parameter(description = "Link ID to update") @PathVariable Long linkId,
+			@Parameter(description = "Link URL") @RequestParam String url,
+			@Parameter(description = "Link title") @RequestParam String title,
+			@Parameter(description = "Link description (optional)") @RequestParam(required = false) String description,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		String username = authentication.getName();
+
+		try {
+			com.example.CalCol.entity.CalculatorLink link = linkService.updateLink(linkId, url, title, description, username);
+			LinkDTO dto = dtoMapper.toLinkDTO(link);
+			return ResponseEntity.ok(ApiResponse.success("Link updated successfully", dto));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Link not found or you don't have permission to update it"));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to update link: " + e.getMessage()));
+		}
+	}
+
 	@DeleteMapping("/{linkId}")
 	@Operation(summary = "Delete link", description = "Delete a link from a calculator")
 	public ResponseEntity<ApiResponse<Void>> deleteLink(
@@ -91,6 +122,36 @@ public class LinkRestController {
 		} else {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ApiResponse.error("Link not found or you don't have permission to delete it"));
+		}
+	}
+
+	@PostMapping("/bulk-delete")
+	@Operation(summary = "Bulk delete links", description = "Delete multiple links from a calculator at once")
+	public ResponseEntity<ApiResponse<Map<String, Integer>>> bulkDeleteLinks(
+			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
+			@Parameter(description = "List of link IDs to delete") @RequestParam("linkIds") java.util.List<Long> linkIds,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		if (linkIds == null || linkIds.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ApiResponse.error("No links selected for deletion"));
+		}
+
+		String username = authentication.getName();
+		int deletedCount = linkService.bulkDeleteLinks(linkIds, username);
+
+		if (deletedCount > 0) {
+			return ResponseEntity.ok(ApiResponse.success(
+				deletedCount + " link(s) deleted successfully", 
+				Map.of("deletedCount", deletedCount)));
+		} else {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ApiResponse.error("No links could be deleted. You may not have permission to delete the selected links."));
 		}
 	}
 }

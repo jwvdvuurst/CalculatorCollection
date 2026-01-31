@@ -31,6 +31,9 @@ public class DtoMapperService {
 		dto.setSoldTo(calculator.getSoldTo());
 		dto.setSourceUrl(calculator.getSourceUrl());
 		dto.setRawRowText(calculator.getRawRowText());
+		dto.setCurrentPrice(calculator.getCurrentPrice());
+		dto.setPriceCurrency(calculator.getPriceCurrency());
+		dto.setPriceLastUpdated(calculator.getPriceLastUpdated());
 		
 		if (labels != null) {
 			dto.setLabels(labels.stream().map(this::toLabelDTO).collect(Collectors.toList()));

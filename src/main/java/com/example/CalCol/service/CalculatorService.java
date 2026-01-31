@@ -39,8 +39,112 @@ public class CalculatorService {
 		return calculatorRepository.searchByModelOrManufacturer(search.trim(), pageable);
 	}
 
+	public Page<Calculator> searchCalculators(String search, java.math.BigDecimal minPrice, 
+											  java.math.BigDecimal maxPrice, String sort, Pageable pageable) {
+		boolean hasSearch = search != null && !search.trim().isEmpty();
+		boolean hasPriceFilter = minPrice != null || maxPrice != null;
+		
+		// Apply sorting to pageable
+		Pageable sortedPageable = applySorting(pageable, sort);
+		
+		if (!hasPriceFilter) {
+			if (hasSearch) {
+				return calculatorRepository.searchByModelOrManufacturer(search.trim(), sortedPageable);
+			} else {
+				return calculatorRepository.findAll(sortedPageable);
+			}
+		}
+		
+		// Set defaults for price range if not provided
+		java.math.BigDecimal min = minPrice != null ? minPrice : java.math.BigDecimal.ZERO;
+		java.math.BigDecimal max = maxPrice != null ? maxPrice : java.math.BigDecimal.valueOf(100000);
+		
+		if (hasSearch && search != null) {
+			return calculatorRepository.searchByModelOrManufacturerAndPriceRange(
+				search.trim(), min, max, sortedPageable);
+		} else {
+			return calculatorRepository.findByPriceRange(min, max, sortedPageable);
+		}
+	}
+
 	public Page<Calculator> getCalculatorsByManufacturer(Long manufacturerId, Pageable pageable) {
 		return calculatorRepository.findByManufacturerId(manufacturerId, pageable);
+	}
+
+	public Page<Calculator> getCalculatorsByManufacturer(Long manufacturerId, 
+														 java.math.BigDecimal minPrice,
+														 java.math.BigDecimal maxPrice,
+														 String sort,
+														 Pageable pageable) {
+		boolean hasPriceFilter = minPrice != null || maxPrice != null;
+		
+		// Apply sorting to pageable
+		Pageable sortedPageable = applySorting(pageable, sort);
+		
+		if (!hasPriceFilter) {
+			return calculatorRepository.findByManufacturerId(manufacturerId, sortedPageable);
+		}
+		
+		// Set defaults for price range if not provided
+		java.math.BigDecimal min = minPrice != null ? minPrice : java.math.BigDecimal.ZERO;
+		java.math.BigDecimal max = maxPrice != null ? maxPrice : java.math.BigDecimal.valueOf(100000);
+		
+		return calculatorRepository.findByManufacturerIdAndPriceRange(manufacturerId, min, max, sortedPageable);
+	}
+
+	/**
+	 * Apply sorting to a Pageable based on sort parameter
+	 */
+	private Pageable applySorting(Pageable pageable, String sort) {
+		if (sort == null || sort.trim().isEmpty()) {
+			return pageable;
+		}
+		
+		org.springframework.data.domain.Sort sortObj;
+		
+		switch (sort) {
+			case "price_asc":
+				// Sort by price ascending, then by ID
+				// Note: nulls will be handled by database (typically first for ASC)
+				sortObj = org.springframework.data.domain.Sort.by("currentPrice").ascending()
+					.and(org.springframework.data.domain.Sort.by("id").ascending());
+				break;
+			case "price_desc":
+				// Sort by price descending, then by ID
+				// Note: nulls will be handled by database (typically last for DESC)
+				sortObj = org.springframework.data.domain.Sort.by("currentPrice").descending()
+					.and(org.springframework.data.domain.Sort.by("id").ascending());
+				break;
+			case "model_asc":
+				sortObj = org.springframework.data.domain.Sort.by("model").ascending();
+				break;
+			case "model_desc":
+				sortObj = org.springframework.data.domain.Sort.by("model").descending();
+				break;
+			case "manufacturer_asc":
+				sortObj = org.springframework.data.domain.Sort.by("manufacturer.name").ascending();
+				break;
+			case "manufacturer_desc":
+				sortObj = org.springframework.data.domain.Sort.by("manufacturer.name").descending();
+				break;
+			case "year_asc":
+				sortObj = org.springframework.data.domain.Sort.by("soldFrom").ascending()
+					.and(org.springframework.data.domain.Sort.by("id").ascending());
+				break;
+			case "year_desc":
+				sortObj = org.springframework.data.domain.Sort.by("soldFrom").descending()
+					.and(org.springframework.data.domain.Sort.by("id").ascending());
+				break;
+			default:
+				// Default: sort by ID
+				return pageable;
+		}
+		
+		return org.springframework.data.domain.PageRequest.of(
+			pageable.getPageNumber(),
+			pageable.getPageSize(),
+			sortObj
+		);
 	}
 
 	public Optional<Calculator> getCalculatorById(Long id) {

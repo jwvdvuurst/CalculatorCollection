@@ -38,8 +38,9 @@ public class WebSearchService {
 
 	/**
 	 * Search Google for calculator information
+	 * @throws RateLimitException if HTTP 429 (Too Many Requests) is received
 	 */
-	public List<SearchResult> searchGoogle(String query, int maxResults) {
+	public List<SearchResult> searchGoogle(String query, int maxResults) throws RateLimitException {
 		if (googleApiKey == null || googleApiKey.isEmpty() || 
 			googleSearchEngineId == null || googleSearchEngineId.isEmpty()) {
 			log.warn("Google API key or search engine ID not configured. Skipping Google search.");
@@ -68,6 +69,13 @@ public class WebSearchService {
 			// Record successful request
 			quotaService.recordRequest("google");
 			return results;
+		} catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+			if (e.getStatusCode() != null && e.getStatusCode().value() == 429) {
+				log.warn("Google search API rate limit exceeded (HTTP 429)");
+				throw new RateLimitException("Google search API rate limit exceeded (HTTP 429)", e);
+			}
+			log.error("Error searching Google: {} - {}", e.getStatusCode(), e.getMessage());
+			return new ArrayList<>();
 		} catch (Exception e) {
 			log.error("Error searching Google: {}", e.getMessage(), e);
 			return new ArrayList<>();
@@ -76,8 +84,9 @@ public class WebSearchService {
 
 	/**
 	 * Search Bing for calculator information
+	 * @throws RateLimitException if HTTP 429 (Too Many Requests) is received
 	 */
-	public List<SearchResult> searchBing(String query, int maxResults) {
+	public List<SearchResult> searchBing(String query, int maxResults) throws RateLimitException {
 		if (bingApiKey == null || bingApiKey.isEmpty()) {
 			log.warn("Bing API key not configured. Skipping Bing search.");
 			return new ArrayList<>();
@@ -106,6 +115,13 @@ public class WebSearchService {
 		// Record successful request
 		quotaService.recordRequest("bing");
 		return results;
+	} catch (org.springframework.web.reactive.function.client.WebClientResponseException e) {
+		if (e.getStatusCode() != null && e.getStatusCode().value() == 429) {
+			log.warn("Bing search API rate limit exceeded (HTTP 429)");
+			throw new RateLimitException("Bing search API rate limit exceeded (HTTP 429)", e);
+		}
+		log.error("Error searching Bing: {} - {}", e.getStatusCode(), e.getMessage());
+		return new ArrayList<>();
 	} catch (Exception e) {
 		log.error("Error searching Bing: {}", e.getMessage(), e);
 		return new ArrayList<>();

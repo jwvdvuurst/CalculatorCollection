@@ -174,6 +174,23 @@
 			color: #666;
 		}
 	</style>
+	<script>
+		function changeSort(sortValue) {
+			const url = new URL(window.location.href);
+			const params = new URLSearchParams(url.search);
+			
+			if (sortValue) {
+				params.set('sort', sortValue);
+			} else {
+				params.delete('sort');
+			}
+			
+			// Reset to first page when sorting changes
+			params.set('page', '0');
+			
+			window.location.href = url.pathname + '?' + params.toString();
+		}
+	</script>
 </head>
 <body>
 	<div class="navbar">
@@ -209,6 +226,32 @@
 				<button type="submit">Search</button>
 				<a th:href="@{/calculators}" class="btn" style="margin-left: 10px;">Clear</a>
 			</form>
+			<div style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+				<h3 style="margin-top: 0; margin-bottom: 10px; font-size: 1em;">Filter by Price (EUR)</h3>
+				<form th:action="@{/calculators}" method="get" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+					<input type="hidden" name="search" th:value="${search}">
+					<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
+					<input type="hidden" name="sort" th:value="${sort}">
+					<label style="display: flex; align-items: center; gap: 5px;">
+						<span>Min:</span>
+						<input type="number" name="minPrice" th:value="${minPrice}" 
+							   placeholder="0" step="0.01" min="0" 
+							   style="width: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+					</label>
+					<label style="display: flex; align-items: center; gap: 5px;">
+						<span>Max:</span>
+						<input type="number" name="maxPrice" th:value="${maxPrice}" 
+							   placeholder="10000" step="0.01" min="0" 
+							   style="width: 100px; padding: 8px; border: 1px solid #ddd; border-radius: 5px;">
+					</label>
+					<button type="submit" style="padding: 8px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">Apply Price Filter</button>
+					<a th:href="@{/calculators(search=${search}, manufacturerId=${manufacturerId}, sort=${sort})}" 
+					   class="btn" 
+					   style="padding: 8px 15px; background: #6c757d; color: white; text-decoration: none; border-radius: 5px;">
+						Clear Price Filter
+					</a>
+				</form>
+			</div>
 			<div style="margin-top: 15px;">
 				<a th:href="@{/calculators/propose}" class="btn" style="background: #28a745;">Propose New Calculator</a>
 			</div>
@@ -217,6 +260,22 @@
 		<div th:if="${manufacturer}" class="manufacturer-info">
 			<h3 th:text="${manufacturer.name}">Manufacturer</h3>
 			<a th:href="@{/calculators}">← Back to all calculators</a>
+		</div>
+
+		<div th:if="${calculators != null && !calculators.isEmpty()}" style="background: white; padding: 15px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);">
+			<label for="sortSelect" style="font-weight: 500; color: #333; margin-right: 10px;">Sort by:</label>
+			<select id="sortSelect" onchange="changeSort(this.value)" 
+					style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 0.9em; cursor: pointer;">
+				<option value="">Default (ID)</option>
+				<option value="price_asc" th:selected="${sort == 'price_asc'}">Price: Low to High</option>
+				<option value="price_desc" th:selected="${sort == 'price_desc'}">Price: High to Low</option>
+				<option value="model_asc" th:selected="${sort == 'model_asc'}">Model: A-Z</option>
+				<option value="model_desc" th:selected="${sort == 'model_desc'}">Model: Z-A</option>
+				<option value="manufacturer_asc" th:selected="${sort == 'manufacturer_asc'}">Manufacturer: A-Z</option>
+				<option value="manufacturer_desc" th:selected="${sort == 'manufacturer_desc'}">Manufacturer: Z-A</option>
+				<option value="year_asc" th:selected="${sort == 'year_asc'}">Year: Oldest First</option>
+				<option value="year_desc" th:selected="${sort == 'year_desc'}">Year: Newest First</option>
+			</select>
 		</div>
 
 		<div th:if="${calculators != null && !calculators.isEmpty()}">
@@ -228,6 +287,14 @@
 						<strong>Years:</strong> <span th:text="${calc.soldFrom}"></span>
 						<span th:if="${calc.soldTo != null}" th:text="' - ' + ${calc.soldTo}"></span>
 					</div>
+					<div class="details" th:if="${calc.currentPrice != null}" 
+						 style="margin-top: 10px; padding: 10px; background: #e8f5e9; border-radius: 5px; border-left: 3px solid #4caf50;">
+						<strong style="color: #2e7d32;">Price:</strong>
+						<span style="font-weight: bold; color: #1b5e20; font-size: 1.1em;">
+							<span th:text="${calc.priceCurrency != null ? calc.priceCurrency : 'EUR'}"></span>
+							<span th:text="${#numbers.formatDecimal(calc.currentPrice, 0, 2)}"></span>
+						</span>
+					</div>
 					<div class="actions">
 						<a th:href="@{/calculators/{id}(id=${calc.id})}" class="btn" style="background: #6c757d; margin-bottom: 5px; display: block; text-align: center;">View Details</a>
 						<sec:authorize="isAuthenticated()">
@@ -235,6 +302,9 @@
 								  th:if="${collectionIds == null || !collectionIds.contains(calc.id)}">
 								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
 								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="minPrice" th:value="${minPrice}">
+								<input type="hidden" name="maxPrice" th:value="${maxPrice}">
+								<input type="hidden" name="sort" th:value="${sort}">
 								<input type="hidden" name="page" th:value="${calculators.number}">
 								<button type="submit" class="btn btn-primary" style="width: 100%;">➕ Add to Collection</button>
 							</form>
@@ -242,6 +312,9 @@
 								  th:if="${collectionIds != null && collectionIds.contains(calc.id)}">
 								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
 								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="minPrice" th:value="${minPrice}">
+								<input type="hidden" name="maxPrice" th:value="${maxPrice}">
+								<input type="hidden" name="sort" th:value="${sort}">
 								<input type="hidden" name="page" th:value="${calculators.number}">
 								<button type="submit" class="btn btn-danger" style="width: 100%;">➖ Remove from Collection</button>
 							</form>
@@ -249,6 +322,9 @@
 								  th:if="${wishlistIds == null || !wishlistIds.contains(calc.id)}">
 								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
 								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="minPrice" th:value="${minPrice}">
+								<input type="hidden" name="maxPrice" th:value="${maxPrice}">
+								<input type="hidden" name="sort" th:value="${sort}">
 								<input type="hidden" name="page" th:value="${calculators.number}">
 								<button type="submit" class="btn" style="background: #f39c12; color: white; width: 100%;">⭐ Add to Wishlist</button>
 							</form>
@@ -256,6 +332,9 @@
 								  th:if="${wishlistIds != null && wishlistIds.contains(calc.id)}">
 								<input type="hidden" name="manufacturerId" th:value="${manufacturerId}">
 								<input type="hidden" name="search" th:value="${search}">
+								<input type="hidden" name="minPrice" th:value="${minPrice}">
+								<input type="hidden" name="maxPrice" th:value="${maxPrice}">
+								<input type="hidden" name="sort" th:value="${sort}">
 								<input type="hidden" name="page" th:value="${calculators.number}">
 								<button type="submit" class="btn" style="background: #e67e22; color: white; width: 100%;">⭐ Remove from Wishlist</button>
 							</form>
@@ -269,10 +348,10 @@
 
 			<div class="pagination" th:if="${calculators.totalPages > 1}">
 				<a th:if="${calculators.hasPrevious()}" 
-				   th:href="@{/calculators(search=${search}, manufacturerId=${manufacturerId}, page=${calculators.number - 1})}">Previous</a>
+				   th:href="@{/calculators(search=${search}, manufacturerId=${manufacturerId}, minPrice=${minPrice}, maxPrice=${maxPrice}, sort=${sort}, page=${calculators.number - 1})}">Previous</a>
 				<span th:text="'Page ' + (${calculators.number} + 1) + ' of ' + ${calculators.totalPages}"></span>
 				<a th:if="${calculators.hasNext()}" 
-				   th:href="@{/calculators(search=${search}, manufacturerId=${manufacturerId}, page=${calculators.number + 1})}">Next</a>
+				   th:href="@{/calculators(search=${search}, manufacturerId=${manufacturerId}, minPrice=${minPrice}, maxPrice=${maxPrice}, sort=${sort}, page=${calculators.number + 1})}">Next</a>
 			</div>
 		</div>
 

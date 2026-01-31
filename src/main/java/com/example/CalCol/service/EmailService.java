@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.util.List;
@@ -27,13 +28,33 @@ public class EmailService {
 	@Value("${spring.mail.from:Calculator Collector <noreply@calculatorcollector.com>}")
 	private String fromEmail;
 
-	@Value("${app.base-url:http://localhost:8080}")
+	@Value("${app.base-url:}")
+	private String configuredBaseUrl;
+
+	@Value("${server.port:8080}")
+	private int serverPort;
+
+	@Value("${server.address:localhost}")
+	private String serverAddress;
+
 	private String baseUrl;
 
 	@Autowired
 	public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
 		this.mailSender = mailSender;
 		this.templateEngine = templateEngine;
+	}
+
+	@PostConstruct
+	public void init() {
+		if (configuredBaseUrl != null && !configuredBaseUrl.trim().isEmpty()) {
+			baseUrl = configuredBaseUrl.trim();
+		} else {
+			// Construct URL from server configuration
+			String host = "0.0.0.0".equals(serverAddress) ? "localhost" : serverAddress;
+			baseUrl = "http://" + host + ":" + serverPort;
+		}
+		log.info("Email service base URL: {}", baseUrl);
 	}
 
 	public void sendSimpleEmail(String to, String subject, String text) {

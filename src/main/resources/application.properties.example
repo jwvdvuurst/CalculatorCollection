@@ -52,6 +52,21 @@ app.search.brave.api-key=
 # AI Search API (optional - supports OpenAI or Anthropic)
 # OpenAI: Get your API key from: https://platform.openai.com/api-keys
 # Anthropic: Get your API key from: https://console.anthropic.com/
+
+# Price Update Configuration
+# Enable/disable automatic price updates
+app.price.update.enabled=true
+# Enable/disable scheduled price updates
+app.price.update.schedule.enabled=true
+# Cron expression for daily price updates (default: 2 AM daily)
+# Format: second, minute, hour, day of month, month, day of week
+app.price.update.cron=0 0 2 * * ?
+# Cron expression for weekly price updates (default: Sunday 3 AM)
+app.price.update.weekly.cron=0 0 3 * * SUN
+# Default currency for prices (ISO 4217 code)
+app.price.default-currency=EUR
+# Maximum age in days before price is considered stale and needs update
+app.price.max-age-days=30
 app.search.ai.api-key=
 app.search.ai.provider=openai
 

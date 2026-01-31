@@ -29,6 +29,8 @@
 2. **Authenticated Endpoints** (require HTTP Basic Auth):
    - `/api/**` - All REST API endpoints require authentication
    - `/profile/**` - User profile pages
+   
+   **Note**: Some endpoints like `/api/calculators/{calculatorId}/links` and `/api/calculators/{calculatorId}/labels` (GET methods) may work without authentication, but it's recommended to always include authentication headers for consistency.
 
 3. **Admin Only Endpoints**:
    - `/admin/**` - Requires ADMIN role
@@ -107,7 +109,7 @@ All API endpoints return responses in this format:
 ### 2. Calculators API (`/api/calculators`)
 
 #### GET `/api/calculators`
-- **Authentication**: Not required (public endpoint)
+- **Authentication**: Required (HTTP Basic Auth)
 - **Query Parameters**:
   - `search` (optional): Search term for model or manufacturer
   - `manufacturerId` (optional): Filter by manufacturer ID
@@ -116,8 +118,20 @@ All API endpoints return responses in this format:
 - **Response**: `ApiResponse<Page<CalculatorDTO>>`
 
 #### GET `/api/calculators/{id}`
-- **Authentication**: Not required (public endpoint)
+- **Authentication**: Required (HTTP Basic Auth)
+- **Description**: Get detailed information about a specific calculator including labels, images, and links
 - **Response**: `ApiResponse<CalculatorDTO>`
+
+#### GET `/api/calculators/manufacturers`
+- **Authentication**: Required (HTTP Basic Auth)
+- **Description**: Get a list of all calculator manufacturers
+- **Response**: `ApiResponse<List<ManufacturerDTO>>`
+
+#### POST `/api/calculators/{id}/enrich`
+- **Authentication**: Required (HTTP Basic Auth)
+- **Authorization**: Admin only
+- **Description**: Enrich a calculator with web search data, museum search, and AI enhancement
+- **Response**: `ApiResponse<EnrichmentDTO>`
 
 ---
 
@@ -131,29 +145,269 @@ All API endpoints return responses in this format:
 #### POST `/api/collection/{calculatorId}`
 - **Authentication**: Required
 - **Description**: Add calculator to user's collection
+- **Parameters**: `notes` (optional, query parameter)
+- **Response**: `ApiResponse<Void>`
 
 #### DELETE `/api/collection/{calculatorId}`
 - **Authentication**: Required
 - **Description**: Remove calculator from user's collection
+- **Response**: `ApiResponse<Void>`
+
+#### PUT `/api/collection/{calculatorId}/notes`
+- **Authentication**: Required
+- **Description**: Update notes for a calculator in the collection
+- **Parameters**: `notes` (optional, query parameter)
+- **Response**: `ApiResponse<Void>`
 
 #### GET `/api/collection/statistics`
 - **Authentication**: Required
+- **Description**: Get statistics about the user's collection (by manufacturer, period, labels)
 - **Response**: `ApiResponse<CollectionStatisticsDTO>`
+
+#### GET `/api/collection/count`
+- **Authentication**: Required
+- **Description**: Get the total number of calculators in the user's collection
+- **Response**: `ApiResponse<Map<String, Long>>` (contains `count` field)
+
+#### GET `/api/collection/export`
+- **Authentication**: Required
+- **Description**: Export user's collection as JSON or CSV
+- **Parameters**: `format` (optional, default: "json", values: "json" or "csv")
+- **Response**: File download (JSON or CSV file)
+
+#### POST `/api/collection/import`
+- **Authentication**: Required
+- **Description**: Import calculators to user's collection from JSON file
+- **Parameters**: `file` (multipart/form-data, JSON file)
+- **Response**: `ApiResponse<Map<String, Integer>>` (contains `imported` count)
+
+#### POST `/api/collection/send-summary-email`
+- **Authentication**: Required
+- **Description**: Send an email with collection statistics to the user's email address
+- **Response**: `ApiResponse<Void>`
 
 ---
 
-### 4. Other API Endpoints
+### 4. Wishlist API (`/api/wishlist`)
 
-All other endpoints follow similar patterns:
-- `/api/labels/**` - Label management
-- `/api/images/**` - Image management
-- `/api/links/**` - Link management
-- `/api/proposals/**` - Calculator proposals
-- `/api/share/**` - Collection sharing
-- `/api/quota/status` - Quota status
-- `/api/calculators/{id}/social-share/**` - Social media post generation
+#### GET `/api/wishlist`
+- **Authentication**: Required
+- **Query Parameters**: `page` (default: 0), `size` (default: 20)
+- **Description**: Get all calculators in the authenticated user's wishlist
+- **Response**: `ApiResponse<Page<CalculatorDTO>>`
 
-**All require HTTP Basic Authentication except `/api/calculators` endpoints.**
+#### POST `/api/wishlist/{calculatorId}`
+- **Authentication**: Required
+- **Description**: Add calculator to user's wishlist (auto-generates search queries for Marktplaats, eBay, Etsy)
+- **Parameters**: `notes` (optional, query parameter)
+- **Response**: `ApiResponse<Void>`
+
+#### DELETE `/api/wishlist/{calculatorId}`
+- **Authentication**: Required
+- **Description**: Remove calculator from user's wishlist
+- **Response**: `ApiResponse<Void>`
+
+#### PUT `/api/wishlist/{calculatorId}/notes`
+- **Authentication**: Required
+- **Description**: Update notes for a calculator in the wishlist
+- **Parameters**: `notes` (optional, query parameter)
+- **Response**: `ApiResponse<Void>`
+
+#### POST `/api/wishlist/{calculatorId}/move-to-collection`
+- **Authentication**: Required
+- **Description**: Move a calculator from wishlist to collection (preserves notes)
+- **Response**: `ApiResponse<Void>`
+
+#### GET `/api/wishlist/count`
+- **Authentication**: Required
+- **Description**: Get the total number of calculators in the user's wishlist
+- **Response**: `ApiResponse<Map<String, Long>>` (contains `count` field)
+
+#### PUT `/api/wishlist/{calculatorId}/search-queries`
+- **Authentication**: Required
+- **Description**: Update search queries for Marktplaats, eBay, and Etsy for a wishlist item
+- **Parameters**: `marktplaatsQuery` (optional), `ebayQuery` (optional), `etsyQuery` (optional)
+- **Response**: `ApiResponse<Map<String, String>>` (contains updated queries)
+
+#### POST `/api/wishlist/{calculatorId}/search-queries/reset`
+- **Authentication**: Required
+- **Description**: Reset search queries for a wishlist item to auto-generated defaults
+- **Response**: `ApiResponse<Map<String, String>>` (contains reset queries)
+
+---
+
+### 5. Images API (`/api/calculators/{calculatorId}/images`)
+
+#### GET `/api/calculators/{calculatorId}/images`
+- **Authentication**: Optional (authenticated users see their own pending proposals)
+- **Description**: Get all approved images for a calculator. Authenticated users can also see their own pending proposals.
+- **Response**: `ApiResponse<List<ImageDTO>>`
+
+#### POST `/api/calculators/{calculatorId}/images`
+- **Authentication**: Required
+- **Content-Type**: `multipart/form-data`
+- **Description**: Upload an image for a calculator
+- **Parameters**: 
+  - `file` (required): Image file
+  - `propose` (optional, default: true): If true, image is proposed for approval. If false and user is admin, image is auto-approved.
+- **Response**: `ApiResponse<ImageDTO>`
+
+#### POST `/api/calculators/{calculatorId}/images/binary`
+- **Authentication**: Required
+- **Content-Type**: `image/jpeg`, `image/png`, `image/gif`, `image/webp`, or `application/octet-stream`
+- **Description**: Upload an image using raw binary data in the request body
+- **Parameters**: 
+  - Request body: Image binary data
+  - `Content-Type` header: Image MIME type
+  - `propose` (optional, default: true): If true, image is proposed for approval. If false and user is admin, image is auto-approved.
+- **Response**: `ApiResponse<ImageDTO>`
+
+#### GET `/api/calculators/{calculatorId}/images/{imageId}/data`
+- **Authentication**: Optional (required for unapproved images that user uploaded)
+- **Description**: Get the binary data for an image file. Returns the image file with appropriate content type.
+- **Response**: Binary image data with appropriate Content-Type header
+
+#### DELETE `/api/calculators/{calculatorId}/images/{imageId}`
+- **Authentication**: Required
+- **Description**: Delete an image. Users can only delete their own images.
+- **Response**: `ApiResponse<Void>`
+
+#### POST `/api/calculators/{calculatorId}/images/from-url`
+- **Authentication**: Required
+- **Authorization**: Admin only
+- **Description**: Download an image from a URL and add it to a calculator
+- **Parameters**: 
+  - `imageUrl` (required): URL of the image to download
+  - `proposeForRepository` (optional, default: false): If true, image is proposed for repository approval
+- **Response**: `ApiResponse<ImageDTO>`
+
+---
+
+### 6. Links API (`/api/calculators/{calculatorId}/links`)
+
+#### GET `/api/calculators/{calculatorId}/links`
+- **Authentication**: Not required (public endpoint)
+- **Description**: Get all external links for a calculator
+- **Response**: `ApiResponse<List<LinkDTO>>`
+
+#### POST `/api/calculators/{calculatorId}/links`
+- **Authentication**: Required
+- **Description**: Add an external link to a calculator
+- **Parameters**: 
+  - `url` (required): Link URL
+  - `title` (required): Link title
+  - `description` (optional): Link description
+- **Response**: `ApiResponse<LinkDTO>`
+
+#### PUT `/api/calculators/{calculatorId}/links/{linkId}`
+- **Authentication**: Required
+- **Description**: Update an existing link on a calculator
+- **Parameters**: 
+  - `url` (required): Link URL
+  - `title` (required): Link title
+  - `description` (optional): Link description
+- **Response**: `ApiResponse<LinkDTO>`
+
+#### DELETE `/api/calculators/{calculatorId}/links/{linkId}`
+- **Authentication**: Required
+- **Description**: Delete a link from a calculator (users can only delete links they added)
+- **Response**: `ApiResponse<Void>`
+
+#### POST `/api/calculators/{calculatorId}/links/bulk-delete`
+- **Authentication**: Required
+- **Description**: Delete multiple links from a calculator at once
+- **Parameters**: `linkIds` (required): List of link IDs to delete
+- **Response**: `ApiResponse<Map<String, Integer>>` (contains `deletedCount`)
+
+---
+
+### 7. Labels API (`/api/calculators/{calculatorId}/labels`)
+
+#### GET `/api/calculators/{calculatorId}/labels`
+- **Authentication**: Not required (public endpoint)
+- **Description**: Get all labels assigned to a calculator
+- **Response**: `ApiResponse<List<LabelDTO>>`
+
+#### GET `/api/calculators/{calculatorId}/labels/curated`
+- **Authentication**: Not required (public endpoint)
+- **Description**: Get all curated labels available in the system
+- **Response**: `ApiResponse<List<LabelDTO>>`
+
+#### POST `/api/calculators/{calculatorId}/labels`
+- **Authentication**: Required
+- **Description**: Add a label to a calculator. Can use existing label ID or create a new free-form label.
+- **Parameters**: 
+  - `labelId` (optional): Existing label ID to use
+  - `newLabelName` (optional): New label name (if creating new free-form label)
+  - Either `labelId` or `newLabelName` must be provided
+- **Response**: `ApiResponse<Void>`
+
+#### DELETE `/api/calculators/{calculatorId}/labels/{labelId}`
+- **Authentication**: Required
+- **Description**: Remove a label from a calculator
+- **Response**: `ApiResponse<Void>`
+
+---
+
+### 8. Proposals API (`/api/proposals`)
+
+#### POST `/api/proposals`
+- **Authentication**: Required
+- **Description**: Submit a proposal for a new calculator to be added to the database
+- **Parameters**: 
+  - `model` (required): Calculator model
+  - `manufacturer` (required): Manufacturer name
+  - `soldFrom` (optional): Year sold from
+  - `soldTo` (optional): Year sold to
+  - `sourceUrl` (optional): Source URL
+  - `rawRowText` (optional): Raw row text
+  - `notes` (optional): Additional notes
+- **Response**: `ApiResponse<Map<String, Long>>` (contains `proposalId`)
+
+---
+
+### 9. Sharing API (`/api/share`)
+
+#### POST `/api/share`
+- **Authentication**: Required
+- **Description**: Create a shareable link for selected calculators or entire collection
+- **Parameters**: 
+  - `title` (required): Title for the shared collection
+  - `description` (optional): Description
+  - `calculatorIds` (optional): Comma-separated list of calculator IDs. If empty, shares entire collection.
+  - `daysValid` (optional, default: 30): Days until expiration
+- **Response**: `ApiResponse<Map<String, String>>` (contains `token` and `shareUrl`)
+
+#### GET `/api/share/{token}`
+- **Authentication**: Not required (public endpoint)
+- **Description**: Get calculators from a shared collection
+- **Query Parameters**: `page` (default: 0), `size` (default: 20)
+- **Response**: `ApiResponse<Page<CalculatorDTO>>`
+
+---
+
+### 10. Social Media API (`/api/calculators/{calculatorId}/social-share`)
+
+#### POST `/api/calculators/{calculatorId}/social-share/generate`
+- **Authentication**: Required
+- **Description**: Generate a social media post for a calculator, optionally with enrichment
+- **Parameters**: 
+  - `platform` (required): Social media platform (twitter, facebook, instagram, linkedin, reddit, mastodon)
+  - `enableEnrichment` (optional, default: false): Enable enrichment (web search, museum search, AI)
+- **Response**: `ApiResponse<Map<String, Object>>` (contains `post` and `enrichment`)
+
+---
+
+### 11. Quota API (`/api/quota`)
+
+#### GET `/api/quota/status`
+- **Authentication**: Required
+- **Description**: Get quota and rate limit status for all services (Google, Bing, Brave, AI APIs)
+- **Response**: `ApiResponse<Map<String, QuotaStatus>>`
+
+---
+
+**All `/api/**` endpoints require HTTP Basic Authentication.**
 
 ---
 
@@ -168,8 +422,9 @@ All other endpoints follow similar patterns:
 ### 2. Authentication Setup
 - [ ] Encode credentials: `Base64.encode("username:password")`
 - [ ] Add header: `Authorization: Basic <encoded-credentials>`
-- [ ] Include header in ALL requests to `/api/**` endpoints
+- [ ] Include header in ALL requests to `/api/**` endpoints (required for most endpoints)
 - [ ] Handle 401 responses (authentication failed)
+- [ ] Handle 403 responses (forbidden - admin access required)
 
 ### 3. Network Configuration
 - [ ] Verify server is running on port 8080

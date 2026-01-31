@@ -17,6 +17,9 @@ public class CalculatorDTO {
 	private Integer soldTo;
 	private String sourceUrl;
 	private String rawRowText;
+	private java.math.BigDecimal currentPrice;
+	private String priceCurrency;
+	private java.time.LocalDateTime priceLastUpdated;
 	private List<LabelDTO> labels;
 	private List<ImageDTO> images;
 	private List<LinkDTO> links;

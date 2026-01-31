@@ -425,6 +425,129 @@ User → GET /calculators/manufacturers
      - Raw text content
    ```
 
+## REST API Flows
+
+### Collection Management via REST API
+
+1. **Get Collection**
+   ```
+   Client → GET /api/collection?page=0&size=20
+   → HTTP Basic Auth validation
+   → CollectionRestController.getCollection()
+   → CalculatorService.getUserCollection()
+   → Returns paginated collection with CalculatorDTOs
+   → JSON response with ApiResponse wrapper
+   ```
+
+2. **Add to Collection**
+   ```
+   Client → POST /api/collection/{calculatorId}?notes=...
+   → HTTP Basic Auth validation
+   → CollectionRestController.addToCollection()
+   → CalculatorService.addToCollection()
+   → Creates UserCalculatorCollection entry
+   → Returns ApiResponse with success message
+   ```
+
+3. **Update Collection Notes**
+   ```
+   Client → PUT /api/collection/{calculatorId}/notes?notes=...
+   → HTTP Basic Auth validation
+   → CollectionRestController.updateCollectionNotes()
+   → CalculatorService.updateCollectionNotes()
+   → Updates notes in database
+   → Returns ApiResponse with success message
+   ```
+
+4. **Export Collection**
+   ```
+   Client → GET /api/collection/export?format=json
+   → HTTP Basic Auth validation
+   → CollectionRestController.exportCollection()
+   → ExportService.exportUserCollectionAsJson()
+   → Returns file download (JSON or CSV)
+   ```
+
+### Wishlist Management via REST API
+
+1. **Get Wishlist**
+   ```
+   Client → GET /api/wishlist?page=0&size=20
+   → HTTP Basic Auth validation
+   → WishlistRestController.getWishlist()
+   → WishlistService.getUserWishlist()
+   → Returns paginated wishlist with CalculatorDTOs
+   → JSON response with ApiResponse wrapper
+   ```
+
+2. **Add to Wishlist**
+   ```
+   Client → POST /api/wishlist/{calculatorId}?notes=...
+   → HTTP Basic Auth validation
+   → WishlistRestController.addToWishlist()
+   → WishlistService.addToWishlist()
+   → Creates WishlistItem with auto-generated search queries
+   → Returns ApiResponse with success message
+   ```
+
+3. **Update Search Queries**
+   ```
+   Client → PUT /api/wishlist/{calculatorId}/search-queries?marktplaatsQuery=...&ebayQuery=...&etsyQuery=...
+   → HTTP Basic Auth validation
+   → WishlistRestController.updateSearchQueries()
+   → WishlistService.updateWishlistSearchQueries()
+   → Updates queries in database
+   → Returns ApiResponse with updated queries
+   ```
+
+### Image Management via REST API
+
+1. **Upload Image**
+   ```
+   Client → POST /api/calculators/{calculatorId}/images (multipart/form-data)
+   → HTTP Basic Auth validation
+   → ImageRestController.uploadImage()
+   → ImageService.uploadImage()
+   → Saves file to uploads/ directory
+   → Creates CalculatorImage (pending approval or auto-approved if admin)
+   → Returns ApiResponse with ImageDTO
+   ```
+
+2. **Get Image Data**
+   ```
+   Client → GET /api/calculators/{calculatorId}/images/{imageId}/data
+   → Optional authentication (required for unapproved images)
+   → ImageRestController.getImageData()
+   → FileStorageService.loadFile()
+   → Returns binary image data with Content-Type header
+   ```
+
+### Calculator Enrichment via REST API
+
+1. **Enrich Calculator**
+   ```
+   Client → POST /api/calculators/{id}/enrich
+   → HTTP Basic Auth validation
+   → Admin role check
+   → CalculatorRestController.enrichCalculator()
+   → EnrichmentService.enrichCalculator()
+   → Web search, image search, AI enhancement
+   → Returns ApiResponse with EnrichmentDTO
+   ```
+
+### Social Media Post Generation via REST API
+
+1. **Generate Post**
+   ```
+   Client → POST /api/calculators/{calculatorId}/social-share/generate?platform=twitter&enableEnrichment=true
+   → HTTP Basic Auth validation
+   → SocialMediaRestController.generatePost()
+   → EnrichmentService.buildCalculatorInfo()
+   → Optional: EnrichmentService.enrichCalculator()
+   → SocialMediaPostService.generatePost()
+   → Returns ApiResponse with post content and enrichment data
+   ```
+
 ## Data Flow Summary
 
 ### Request Flow (Web UI)
@@ -464,7 +587,7 @@ Database
   ↓
 DTO Mapping
   ↓
-JSON Response
+JSON Response (ApiResponse wrapper)
   ↓
 Client
 ```
@@ -502,10 +625,13 @@ Client
 ## Security Flow
 
 1. **Web UI**: Session-based authentication via Spring Security
-2. **REST API**: HTTP Basic Authentication
-3. **CSRF**: Disabled for `/api/**`, enabled for web UI
-4. **CORS**: Enabled for `/api/**` endpoints
+2. **REST API**: HTTP Basic Authentication (required for all `/api/**` endpoints)
+3. **CSRF**: Disabled for `/api/**` and `/h2-console/**`, enabled for web UI
+4. **CORS**: Enabled for `/api/**` endpoints (allows all origins, all methods, all headers)
 5. **Authorization**: Role-based (USER, ADMIN)
+6. **Public Endpoints**: 
+   - Web UI: `/`, `/welcome`, `/login`, `/error`, `/register`, `/forgot-password`, `/reset-password`, `/calculators/**`, `/uploads/**`, `/share/**`
+   - REST API: None (all `/api/**` endpoints require authentication)
 
 This flow documentation provides a comprehensive overview of how the application processes user interactions and manages data throughout the system.
 

@@ -41,6 +41,15 @@ public class Calculator {
 	@Column(name = "enriched_data", columnDefinition = "TEXT")
 	private String enrichedData; // JSON string with structured enriched data
 
+	@Column(name = "current_price", precision = 10, scale = 2)
+	private java.math.BigDecimal currentPrice;
+
+	@Column(name = "price_currency", length = 3)
+	private String priceCurrency; // ISO 4217 currency code (EUR, USD, etc.)
+
+	@Column(name = "price_last_updated")
+	private java.time.LocalDateTime priceLastUpdated;
+
 	@ManyToOne(fetch = FetchType.LAZY)
 	@JoinColumn(name = "manufacturer_id", nullable = false)
 	private Manufacturer manufacturer;

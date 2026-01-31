@@ -15,6 +15,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,12 +33,17 @@ public class CalculatorRestController {
 	private final CalculatorService calculatorService;
 	private final LabelService labelService;
 	private final DtoMapperService dtoMapper;
+	private final com.example.CalCol.service.EnrichmentService enrichmentService;
 
 	@GetMapping
-	@Operation(summary = "Browse calculators", description = "Get a paginated list of calculators with optional search and manufacturer filter")
+	@Operation(summary = "Browse calculators", description = "Get a paginated list of calculators with optional search, manufacturer, price filters, and sorting")
 	public ResponseEntity<ApiResponse<Page<CalculatorDTO>>> browseCalculators(
 			@Parameter(description = "Search term for model or manufacturer") @RequestParam(required = false) String search,
 			@Parameter(description = "Filter by manufacturer ID") @RequestParam(required = false) Long manufacturerId,
+			@Parameter(description = "Minimum price filter (EUR)") @RequestParam(required = false) java.math.BigDecimal minPrice,
+			@Parameter(description = "Maximum price filter (EUR)") @RequestParam(required = false) java.math.BigDecimal maxPrice,
+			@Parameter(description = "Sort option: price_asc, price_desc, model_asc, model_desc, manufacturer_asc, manufacturer_desc, year_asc, year_desc") 
+				@RequestParam(required = false) String sort,
 			@Parameter(description = "Page number (0-indexed)") @RequestParam(defaultValue = "0") int page,
 			@Parameter(description = "Page size") @RequestParam(defaultValue = "20") int size) {
 
@@ -45,11 +51,9 @@ public class CalculatorRestController {
 		Page<Calculator> calculatorsPage;
 
 		if (manufacturerId != null) {
-			calculatorsPage = calculatorService.getCalculatorsByManufacturer(manufacturerId, pageable);
-		} else if (search != null && !search.trim().isEmpty()) {
-			calculatorsPage = calculatorService.searchCalculators(search, pageable);
+			calculatorsPage = calculatorService.getCalculatorsByManufacturer(manufacturerId, minPrice, maxPrice, sort, pageable);
 		} else {
-			calculatorsPage = calculatorService.getAllCalculators(pageable);
+			calculatorsPage = calculatorService.searchCalculators(search, minPrice, maxPrice, sort, pageable);
 		}
 
 		Page<CalculatorDTO> dtoPage = calculatorsPage.map(calc -> {
@@ -95,6 +99,46 @@ public class CalculatorRestController {
 			.collect(Collectors.toList());
 
 		return ResponseEntity.ok(ApiResponse.success(dtos));
+	}
+
+	@PostMapping("/{id}/enrich")
+	@Operation(summary = "Enrich calculator", 
+		description = "Enrich a calculator with web search data, museum search, and AI enhancement. Admin only.")
+	public ResponseEntity<ApiResponse<com.example.CalCol.dto.EnrichmentDTO>> enrichCalculator(
+			@Parameter(description = "Calculator ID") @PathVariable Long id,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		boolean isAdmin = authentication.getAuthorities().stream()
+			.anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+		if (!isAdmin) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(ApiResponse.error("Admin access required"));
+		}
+
+		try {
+			java.util.Optional<Calculator> calcOpt = calculatorService.getCalculatorById(id);
+			if (calcOpt.isEmpty()) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+					.body(ApiResponse.error("Calculator not found"));
+			}
+
+			Calculator calculator = calcOpt.get();
+			com.example.CalCol.service.SocialMediaPostService.EnrichmentData enrichment = 
+				enrichmentService.enrichCalculator(calculator);
+
+			com.example.CalCol.dto.EnrichmentDTO dto = dtoMapper.toEnrichmentDTO(enrichment);
+
+			return ResponseEntity.ok(ApiResponse.success("Calculator enriched successfully", dto));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to enrich calculator: " + e.getMessage()));
+		}
 	}
 }
 

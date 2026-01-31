@@ -54,6 +54,9 @@ public class CalculatorController {
 	public String browseCalculators(
 			@RequestParam(required = false) String search,
 			@RequestParam(required = false) Long manufacturerId,
+			@RequestParam(required = false) java.math.BigDecimal minPrice,
+			@RequestParam(required = false) java.math.BigDecimal maxPrice,
+			@RequestParam(required = false) String sort,
 			@RequestParam(defaultValue = "0") int page,
 			Model model,
 			Authentication authentication) {
@@ -62,11 +65,12 @@ public class CalculatorController {
 		
 		org.springframework.data.domain.Page<com.example.CalCol.entity.Calculator> calculatorsPage;
 		if (manufacturerId != null) {
-			calculatorsPage = calculatorService.getCalculatorsByManufacturer(manufacturerId, pageable);
+			calculatorsPage = calculatorService.getCalculatorsByManufacturer(
+				manufacturerId, minPrice, maxPrice, sort, pageable);
 			calculatorService.getManufacturerById(manufacturerId).ifPresent(m -> 
 				model.addAttribute("manufacturer", m));
 		} else {
-			calculatorsPage = calculatorService.searchCalculators(search, pageable);
+			calculatorsPage = calculatorService.searchCalculators(search, minPrice, maxPrice, sort, pageable);
 		}
 		model.addAttribute("calculators", calculatorsPage);
 
@@ -76,6 +80,18 @@ public class CalculatorController {
 		
 		if (manufacturerId != null) {
 			model.addAttribute("manufacturerId", manufacturerId);
+		}
+		
+		if (minPrice != null) {
+			model.addAttribute("minPrice", minPrice);
+		}
+		
+		if (maxPrice != null) {
+			model.addAttribute("maxPrice", maxPrice);
+		}
+		
+		if (sort != null && !sort.trim().isEmpty()) {
+			model.addAttribute("sort", sort);
 		}
 
 		if (authentication != null && authentication.isAuthenticated()) {
@@ -842,6 +858,10 @@ public class CalculatorController {
 				content = exportService.exportUserCollectionAsCsv(username);
 				contentType = "text/csv";
 				filename = "collection_" + username + "_" + java.time.LocalDate.now() + ".csv";
+			} else if ("html".equalsIgnoreCase(format)) {
+				content = exportService.exportUserCollectionAsHtml(username);
+				contentType = "text/html";
+				filename = "collection_" + username + "_" + java.time.LocalDate.now() + ".html";
 			} else {
 				content = exportService.exportUserCollectionAsJson(username);
 				contentType = "application/json";
@@ -853,6 +873,7 @@ public class CalculatorController {
 				.contentType(org.springframework.http.MediaType.parseMediaType(contentType))
 				.body(content);
 		} catch (Exception e) {
+			log.error("Error exporting collection: {}", e.getMessage(), e);
 			return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
 		}
 	}

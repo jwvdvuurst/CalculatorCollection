@@ -117,9 +117,16 @@
 		<div class="dashboard-section">
 			<h1>Admin Dashboard</h1>
 			<p>Review and manage image proposals for the central repository.</p>
-			<div style="margin-top: 20px; display: flex; gap: 10px;">
+			<div style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;">
 				<a th:href="@{/admin/export}" class="btn btn-success">Export All Data</a>
 				<a th:href="@{/admin/proposals}" class="btn btn-success">Review Calculator Proposals</a>
+				<form th:action="@{/admin/prices/update}" method="post" style="display: inline;">
+					<button type="submit" class="btn btn-success" 
+							onclick="return confirm('This will update prices for all calculators. This may take a while. Continue?');"
+							style="background: #17a2b8; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+						💰 Update All Prices
+					</button>
+				</form>
 			</div>
 			<div style="margin-top: 10px;">
 				<form th:action="@{/admin/import}" method="post" enctype="multipart/form-data" style="display: inline;">

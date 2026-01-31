@@ -38,6 +38,10 @@ public class CollectionRestController {
 	private final LabelService labelService;
 	private final DtoMapperService dtoMapper;
 	private final StatisticsService statisticsService;
+	private final com.example.CalCol.service.ExportService exportService;
+	private final com.example.CalCol.service.ImportService importService;
+	private final com.example.CalCol.service.EmailService emailService;
+	private final com.example.CalCol.service.UserService userService;
 
 	@GetMapping
 	@Operation(summary = "Get user collection", description = "Get all calculators in the authenticated user's collection")
@@ -171,6 +175,114 @@ public class CollectionRestController {
 		} else {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ApiResponse.error("Calculator not found in collection"));
+		}
+	}
+
+	@GetMapping("/export")
+	@Operation(summary = "Export collection", description = "Export user's collection as JSON or CSV")
+	public ResponseEntity<?> exportCollection(
+			@Parameter(description = "Export format (json or csv)") @RequestParam(defaultValue = "json") String format,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		try {
+			String username = authentication.getName();
+			String content;
+			String contentType;
+			String filename;
+
+			if ("csv".equalsIgnoreCase(format)) {
+				content = exportService.exportUserCollectionAsCsv(username);
+				contentType = "text/csv";
+				filename = "collection_" + username + "_" + java.time.LocalDate.now() + ".csv";
+			} else {
+				content = exportService.exportUserCollectionAsJson(username);
+				contentType = "application/json";
+				filename = "collection_" + username + "_" + java.time.LocalDate.now() + ".json";
+			}
+
+			return ResponseEntity.ok()
+				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+				.contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+				.body(content);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to export collection: " + e.getMessage()));
+		}
+	}
+
+	@PostMapping("/import")
+	@Operation(summary = "Import collection", description = "Import calculators to user's collection from JSON file")
+	public ResponseEntity<ApiResponse<Map<String, Integer>>> importCollection(
+			@Parameter(description = "JSON file containing collection data") 
+				@RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		if (file.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ApiResponse.error("File is empty"));
+		}
+
+		try {
+			String username = authentication.getName();
+			String jsonData = new String(file.getBytes());
+			int imported = importService.importUserCollection(jsonData, username);
+			return ResponseEntity.ok(ApiResponse.success(
+				"Successfully imported " + imported + " calculator(s)", 
+				Map.of("imported", imported)));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to import collection: " + e.getMessage()));
+		}
+	}
+
+	@PostMapping("/send-summary-email")
+	@Operation(summary = "Send collection summary email", 
+		description = "Send an email with collection statistics to the user's email address")
+	public ResponseEntity<ApiResponse<Void>> sendCollectionSummaryEmail(
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		if (emailService == null) {
+			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+				.body(ApiResponse.error("Email service is not configured"));
+		}
+
+		String username = authentication.getName();
+		try {
+			com.example.CalCol.entity.AppUser user = userService.getUserByUsername(username)
+				.orElseThrow(() -> new IllegalArgumentException("User not found"));
+			
+			if (user.getEmail() == null || user.getEmail().trim().isEmpty()) {
+				return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+					.body(ApiResponse.error("User email address is not configured"));
+			}
+
+			Map<String, Object> stats = statisticsService.getCollectionStatistics(username);
+			long collectionCount = calculatorService.getUserCollectionCount(username);
+			Map<String, Long> byManufacturer = (Map<String, Long>) stats.get("byManufacturer");
+			List<String> recentAdditions = (List<String>) stats.get("recentAdditions");
+			emailService.sendCollectionSummaryEmail(user.getEmail(), username, collectionCount, 
+				byManufacturer != null ? byManufacturer : Map.of(), 
+				recentAdditions != null ? recentAdditions : List.of());
+			
+			return ResponseEntity.ok(ApiResponse.success("Collection summary email sent successfully", null));
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to send email: " + e.getMessage()));
 		}
 	}
 }

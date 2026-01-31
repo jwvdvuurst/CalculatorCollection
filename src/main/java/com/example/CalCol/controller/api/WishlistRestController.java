@@ -187,5 +187,83 @@ public class WishlistRestController {
 
 		return ResponseEntity.ok(ApiResponse.success(Map.of("count", count)));
 	}
+
+	@PutMapping("/{calculatorId}/search-queries")
+	@Operation(summary = "Update wishlist search queries", 
+		description = "Update search queries for Marktplaats, eBay, and Etsy for a wishlist item")
+	public ResponseEntity<ApiResponse<Map<String, String>>> updateSearchQueries(
+			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
+			@Parameter(description = "Marktplaats search query") @RequestParam(required = false) String marktplaatsQuery,
+			@Parameter(description = "eBay search query") @RequestParam(required = false) String ebayQuery,
+			@Parameter(description = "Etsy search query") @RequestParam(required = false) String etsyQuery,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		String username = authentication.getName();
+		boolean updated = wishlistService.updateWishlistSearchQueries(
+			username, calculatorId, marktplaatsQuery, ebayQuery, etsyQuery);
+
+		if (!updated) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Wishlist item not found"));
+		}
+
+		// Get updated queries
+		java.util.Optional<WishlistItem> itemOpt = wishlistService.getWishlistItem(username, calculatorId);
+		if (itemOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Wishlist item not found"));
+		}
+
+		WishlistItem item = itemOpt.get();
+		Map<String, String> queries = Map.of(
+			"marktplaatsQuery", item.getMarktplaatsQuery() != null ? item.getMarktplaatsQuery() : "",
+			"ebayQuery", item.getEbayQuery() != null ? item.getEbayQuery() : "",
+			"etsyQuery", item.getEtsyQuery() != null ? item.getEtsyQuery() : ""
+		);
+
+		return ResponseEntity.ok(ApiResponse.success("Search queries updated successfully", queries));
+	}
+
+	@PostMapping("/{calculatorId}/search-queries/reset")
+	@Operation(summary = "Reset wishlist search queries to default", 
+		description = "Reset search queries for a wishlist item to auto-generated defaults")
+	public ResponseEntity<ApiResponse<Map<String, String>>> resetSearchQueriesToDefault(
+			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		String username = authentication.getName();
+		boolean updated = wishlistService.resetWishlistSearchQueriesToDefault(username, calculatorId);
+
+		if (!updated) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Wishlist item not found"));
+		}
+
+		// Get reset queries
+		java.util.Optional<WishlistItem> itemOpt = wishlistService.getWishlistItem(username, calculatorId);
+		if (itemOpt.isEmpty()) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiResponse.error("Wishlist item not found"));
+		}
+
+		WishlistItem item = itemOpt.get();
+		Map<String, String> queries = Map.of(
+			"marktplaatsQuery", item.getMarktplaatsQuery() != null ? item.getMarktplaatsQuery() : "",
+			"ebayQuery", item.getEbayQuery() != null ? item.getEbayQuery() : "",
+			"etsyQuery", item.getEtsyQuery() != null ? item.getEtsyQuery() : ""
+		);
+
+		return ResponseEntity.ok(ApiResponse.success("Search queries reset to default", queries));
+	}
 }
 

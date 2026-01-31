@@ -10,8 +10,10 @@ import com.example.CalCol.service.ImportService;
 import com.example.CalCol.service.LabelDerivationService;
 import com.example.CalCol.service.LabelService;
 import com.example.CalCol.service.LinkService;
+import com.example.CalCol.service.PriceService;
 import com.example.CalCol.service.UserService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -25,6 +27,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Slf4j
 public class AdminController {
 
 	private final AdminService adminService;
@@ -36,6 +39,7 @@ public class AdminController {
 	private final CalculatorProposalService proposalService;
 	private final UserService userService;
 	private final LinkService linkService;
+	private final PriceService priceService;
 	private static final int PAGE_SIZE = 20;
 
 	@GetMapping("/dashboard")
@@ -425,6 +429,21 @@ public class AdminController {
 			redirectAttributes.addFlashAttribute("errorMessage", "Failed to delete link.");
 		}
 		return "redirect:/admin/calculators/edit/" + calculatorId;
+	}
+
+	@PostMapping("/prices/update")
+	public String updatePrices(RedirectAttributes redirectAttributes) {
+		try {
+			log.info("Manual price update triggered by admin");
+			int updated = priceService.updateAllPrices();
+			redirectAttributes.addFlashAttribute("successMessage", 
+				"Price update completed! Updated " + updated + " calculator(s).");
+		} catch (Exception e) {
+			log.error("Error during manual price update: {}", e.getMessage(), e);
+			redirectAttributes.addFlashAttribute("errorMessage", 
+				"Failed to update prices: " + e.getMessage());
+		}
+		return "redirect:/admin/dashboard";
 	}
 }
 
