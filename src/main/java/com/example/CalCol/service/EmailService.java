@@ -3,7 +3,6 @@ package com.example.CalCol.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -18,12 +17,14 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-@ConditionalOnProperty(name = "spring.mail.host")
 @Slf4j
 public class EmailService {
 
 	private final JavaMailSender mailSender;
 	private final TemplateEngine templateEngine;
+
+	@Value("${spring.mail.host:}")
+	private String mailHost;
 
 	@Value("${spring.mail.from:Calculator Collector <noreply@calculatorcollector.com>}")
 	private String fromEmail;

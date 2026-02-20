@@ -27,6 +27,8 @@ import java.util.Map;
 /**
  * REST API controller for user collection management
  */
+import org.springframework.beans.factory.annotation.Autowired;
+
 @RestController
 @RequestMapping("/api/collection")
 @RequiredArgsConstructor
@@ -40,7 +42,8 @@ public class CollectionRestController {
 	private final StatisticsService statisticsService;
 	private final com.example.CalCol.service.ExportService exportService;
 	private final com.example.CalCol.service.ImportService importService;
-	private final com.example.CalCol.service.EmailService emailService;
+	@Autowired(required = false)
+	private com.example.CalCol.service.EmailService emailService;
 	private final com.example.CalCol.service.UserService userService;
 
 	@GetMapping

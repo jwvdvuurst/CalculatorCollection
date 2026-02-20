@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -105,6 +106,14 @@ public class FileStorageService {
 				Files.copy(in, filePath, StandardCopyOption.REPLACE_EXISTING);
 			}
 
+			log.info("Image downloaded and saved: {}", filePath);
+			return uniqueFilename;
+
+		} catch (Exception e) {
+			log.error("Error downloading image from URL: {}", imageUrl, e);
+			throw new IOException("Failed to download image from URL: " + imageUrl, e);
+		}
+	}
 
 	/**
 	 * Validate a user-provided image URL to mitigate SSRF.
@@ -150,13 +159,6 @@ public class FileStorageService {
 			throw e;
 		} catch (Exception e) {
 			throw new IllegalArgumentException("Invalid image URL", e);
-		}
-	}
-			log.info("Image downloaded and saved: {}", filePath);
-			return uniqueFilename;
-		} catch (Exception e) {
-			log.error("Error downloading image from URL: {}", imageUrl, e);
-			throw new IOException("Failed to download image from URL: " + imageUrl, e);
 		}
 	}
 }
