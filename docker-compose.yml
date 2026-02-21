@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  calculator-collector:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/app/data
+      - ./uploads:/app/uploads
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    restart: unless-stopped

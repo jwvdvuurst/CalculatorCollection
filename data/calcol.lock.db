@@ -1,6 +1,6 @@
 #FileLock
-#Thu Feb 19 21:36:15 CET 2026
-hostName=john-HP-ProDesk-600-G1-DM
-id=19c779e15999fdb91452ebdcde33e459f32f2959319
+#Fri Feb 20 14:57:37 GMT 2026
+hostName=c948a4a82d45
+id=19c7b8e6aaf4dd18baaa497a6ca2192aaa72b9cc796
 method=file
-server=127.0.1.1\:36343
+server=172.19.0.2\:41617
