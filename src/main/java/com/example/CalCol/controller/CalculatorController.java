@@ -479,6 +479,66 @@ public class CalculatorController {
 		return "redirect:/calculators/wishlist";
 	}
 
+	@GetMapping("/wishlist/print")
+	public String printWishlist(Authentication authentication, Model model) {
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return "redirect:/login";
+		}
+
+		String username = authentication.getName();
+		java.util.List<com.example.CalCol.entity.WishlistItem> items = new java.util.ArrayList<>(
+			wishlistService.getAllUserWishlist(username)
+		);
+		items.sort(java.util.Comparator
+			.comparing((com.example.CalCol.entity.WishlistItem item) -> item.getCalculator().getManufacturer().getName())
+			.thenComparing(item -> item.getCalculator().getModel()));
+
+		model.addAttribute("wishlistItems", items);
+		model.addAttribute("username", username);
+		model.addAttribute("wishlistCount", items.size());
+		model.addAttribute("printedAt", java.time.LocalDateTime.now());
+		return "calculators/wishlist-print";
+	}
+
+	@GetMapping("/wishlist/export")
+	public org.springframework.http.ResponseEntity<String> exportWishlist(
+			@RequestParam(defaultValue = "html") String format,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+		}
+
+		try {
+			String username = authentication.getName();
+			String content;
+			String contentType;
+			String filename;
+
+			if ("csv".equalsIgnoreCase(format)) {
+				content = exportService.exportUserWishlistAsCsv(username);
+				contentType = "text/csv";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".csv";
+			} else if ("json".equalsIgnoreCase(format)) {
+				content = exportService.exportUserWishlistAsJson(username);
+				contentType = "application/json";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".json";
+			} else {
+				content = exportService.exportUserWishlistAsHtml(username);
+				contentType = "text/html";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".html";
+			}
+
+			return org.springframework.http.ResponseEntity.ok()
+				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+				.contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+				.body(content);
+		} catch (Exception e) {
+			log.error("Error exporting wishlist: {}", e.getMessage(), e);
+			return org.springframework.http.ResponseEntity.status(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR).build();
+		}
+	}
+
 	@PostMapping("/collection/{calculatorId}/notes")
 	public String updateCollectionNotes(
 			@PathVariable Long calculatorId,

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Wishlist Print - Calculator Collector</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			color: #222;
+			padding: 24px;
+			background: #fff;
+		}
+		.toolbar {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 24px;
+			flex-wrap: wrap;
+		}
+		.btn {
+			padding: 10px 18px;
+			border: none;
+			border-radius: 6px;
+			cursor: pointer;
+			font-size: 14px;
+			text-decoration: none;
+			display: inline-block;
+		}
+		.btn-primary { background: #667eea; color: white; }
+		.btn-secondary { background: #6c757d; color: white; }
+		.header {
+			margin-bottom: 24px;
+			padding-bottom: 16px;
+			border-bottom: 2px solid #667eea;
+		}
+		.header h1 { font-size: 28px; margin-bottom: 8px; color: #333; }
+		.header p { color: #666; }
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			font-size: 14px;
+		}
+		th, td {
+			border: 1px solid #ddd;
+			padding: 10px 12px;
+			text-align: left;
+			vertical-align: top;
+		}
+		th {
+			background: #667eea;
+			color: white;
+			font-weight: 600;
+		}
+		tr:nth-child(even) { background: #f9f9f9; }
+		.manufacturer { color: #667eea; font-weight: 600; }
+		.model { font-weight: 700; }
+		.notes { color: #555; white-space: pre-wrap; }
+		.empty { text-align: center; color: #666; padding: 40px; }
+		@media print {
+			.no-print { display: none !important; }
+			body { padding: 0; }
+			table { font-size: 12px; }
+			th, td { padding: 8px; }
+		}
+	</style>
+</head>
+<body>
+	<div class="toolbar no-print">
+		<button type="button" class="btn btn-primary" onclick="window.print()">Print</button>
+		<a th:href="@{/calculators/wishlist/export(format='html')}" class="btn btn-primary">Download HTML</a>
+		<a th:href="@{/calculators/wishlist}" class="btn btn-secondary">Back to Wishlist</a>
+	</div>
+
+	<div class="header">
+		<h1>Calculator Wishlist</h1>
+		<p>
+			<span th:text="${username}">user</span>
+			&bull;
+			<span th:text="${wishlistCount} + ' calculator(s)'">0 calculator(s)</span>
+		</p>
+		<p th:text="'Generated on ' + ${#temporals.format(printedAt, 'yyyy-MM-dd HH:mm')}">Generated on</p>
+	</div>
+
+	<div th:if="${wishlistItems == null || wishlistItems.isEmpty()}" class="empty">
+		<p>Your wishlist is empty.</p>
+	</div>
+
+	<table th:if="${wishlistItems != null && !wishlistItems.isEmpty()}">
+		<thead>
+			<tr>
+				<th>#</th>
+				<th>Manufacturer</th>
+				<th>Model</th>
+				<th>Years</th>
+				<th>Notes</th>
+				<th>Marktplaats</th>
+				<th>eBay</th>
+				<th>Etsy</th>
+			</tr>
+		</thead>
+		<tbody>
+			<tr th:each="item, stat : ${wishlistItems}">
+				<td th:text="${stat.count}">1</td>
+				<td class="manufacturer" th:text="${item.calculator.manufacturer.name}">Manufacturer</td>
+				<td class="model" th:text="${item.calculator.model}">Model</td>
+				<td>
+					<span th:if="${item.calculator.soldFrom != null}" th:text="${item.calculator.soldFrom}"></span>
+					<span th:if="${item.calculator.soldFrom != null && item.calculator.soldTo != null}"> - </span>
+					<span th:if="${item.calculator.soldTo != null}" th:text="${item.calculator.soldTo}"></span>
+				</td>
+				<td class="notes" th:text="${item.notes} ?: ''"></td>
+				<td>
+					<a th:if="${item.marktplaatsQuery != null && !item.marktplaatsQuery.isEmpty()}"
+					   th:attr="data-query=${item.marktplaatsQuery}"
+					   class="marktplaats-link"
+					   target="_blank" rel="noopener"
+					   th:text="${item.marktplaatsQuery}"></a>
+				</td>
+				<td>
+					<a th:if="${item.ebayQuery != null && !item.ebayQuery.isEmpty()}"
+					   th:attr="data-query=${item.ebayQuery}"
+					   class="ebay-link"
+					   target="_blank" rel="noopener"
+					   th:text="${item.ebayQuery}"></a>
+				</td>
+				<td>
+					<a th:if="${item.etsyQuery != null && !item.etsyQuery.isEmpty()}"
+					   th:attr="data-query=${item.etsyQuery}"
+					   class="etsy-link"
+					   target="_blank" rel="noopener"
+					   th:text="${item.etsyQuery}"></a>
+				</td>
+			</tr>
+		</tbody>
+	</table>
+
+	<script>
+		document.addEventListener('DOMContentLoaded', function() {
+			document.querySelectorAll('a.marktplaats-link').forEach(function(link) {
+				const query = link.getAttribute('data-query');
+				if (query) {
+					link.href = 'https://www.marktplaats.nl/q/' + encodeURIComponent(query) + '/';
+				}
+			});
+			document.querySelectorAll('a.ebay-link').forEach(function(link) {
+				const query = link.getAttribute('data-query');
+				if (query) {
+					link.href = 'https://www.ebay.nl/sch/i.html?_nkw=' + encodeURIComponent(query);
+				}
+			});
+			document.querySelectorAll('a.etsy-link').forEach(function(link) {
+				const query = link.getAttribute('data-query');
+				if (query) {
+					link.href = 'https://www.etsy.com/nl/search?q=' + encodeURIComponent(query);
+				}
+			});
+		});
+	</script>
+</body>
+</html>

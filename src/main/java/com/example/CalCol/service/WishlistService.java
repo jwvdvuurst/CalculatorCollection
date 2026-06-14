@@ -31,6 +31,10 @@ public class WishlistService {
 		return wishlistRepository.countByUsername(username);
 	}
 
+	public List<WishlistItem> getAllUserWishlist(String username) {
+		return wishlistRepository.findByUsernameOrderByAddedAtDesc(username, Pageable.unpaged()).getContent();
+	}
+
 	@Transactional
 	public boolean addToWishlist(String username, Long calculatorId, String notes) {
 		if (wishlistRepository.existsByUsernameAndCalculatorId(username, calculatorId)) {

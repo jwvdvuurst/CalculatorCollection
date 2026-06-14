@@ -87,6 +87,11 @@ app.quota.google.monthly-limit=10000
 app.quota.bing.monthly-limit=10000
 app.quota.ai.monthly-limit=5000
 
+# JWT Configuration (required for Bearer token authentication on /api/**)
+# Use a strong random secret in production (at least 256 bits / 32 characters)
+app.jwt.secret=CHANGE-ME-use-a-long-random-secret-at-least-32-characters
+app.jwt.expiration-ms=86400000
+
 # Email Configuration (optional)
 # For Gmail: Use App Password (not your regular password)
 # Enable 2FA and generate App Password: https://myaccount.google.com/apppasswords

@@ -6,6 +6,7 @@ import com.example.CalCol.entity.Calculator;
 import com.example.CalCol.entity.WishlistItem;
 import com.example.CalCol.service.CalculatorService;
 import com.example.CalCol.service.DtoMapperService;
+import com.example.CalCol.service.ExportService;
 import com.example.CalCol.service.LabelService;
 import com.example.CalCol.service.WishlistService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,6 +39,7 @@ public class WishlistRestController {
 	private final CalculatorService calculatorService;
 	private final LabelService labelService;
 	private final DtoMapperService dtoMapper;
+	private final ExportService exportService;
 
 	@GetMapping
 	@Operation(summary = "Get user wishlist", description = "Get all calculators in the authenticated user's wishlist")
@@ -264,6 +266,47 @@ public class WishlistRestController {
 		);
 
 		return ResponseEntity.ok(ApiResponse.success("Search queries reset to default", queries));
+	}
+
+	@GetMapping("/export")
+	@Operation(summary = "Export wishlist", description = "Export user's wishlist as HTML, JSON, or CSV (suitable for printing or mobile clients)")
+	public ResponseEntity<?> exportWishlist(
+			@Parameter(description = "Export format (html, json, or csv)") @RequestParam(defaultValue = "html") String format,
+			Authentication authentication) {
+
+		if (authentication == null || !authentication.isAuthenticated()) {
+			return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+				.body(ApiResponse.error("Authentication required"));
+		}
+
+		try {
+			String username = authentication.getName();
+			String content;
+			String contentType;
+			String filename;
+
+			if ("csv".equalsIgnoreCase(format)) {
+				content = exportService.exportUserWishlistAsCsv(username);
+				contentType = "text/csv";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".csv";
+			} else if ("json".equalsIgnoreCase(format)) {
+				content = exportService.exportUserWishlistAsJson(username);
+				contentType = "application/json";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".json";
+			} else {
+				content = exportService.exportUserWishlistAsHtml(username);
+				contentType = "text/html";
+				filename = "wishlist_" + username + "_" + java.time.LocalDate.now() + ".html";
+			}
+
+			return ResponseEntity.ok()
+				.header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+				.contentType(org.springframework.http.MediaType.parseMediaType(contentType))
+				.body(content);
+		} catch (Exception e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+				.body(ApiResponse.error("Failed to export wishlist: " + e.getMessage()));
+		}
 	}
 }
 
