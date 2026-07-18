@@ -1,0 +1,20 @@
+---
+name: Atlassian On-Prem
+description: Use this to access JIRA and CONFLUENCE within 
+alwaysApply: true
+---
+
+# Atlassian On-Prem Access
+
+- Do NOT use Atlassian Cloud site assumptions (no `*.atlassian.net`).
+- Preferred Jira URL: `https://jira-emea..org`
+- Preferred Confluence URL: `https://confluence..org`
+- For Jira issue browsing links, use:
+ `https://jira-emea..org/browse/{ISSUE_KEY}`
+- For Confluence pages, use:
+ `https://confluence..org/pages/...`
+
+When tool-based access is needed:
+- Use the custom on-prem Atlassian MCP server/tools.
+- If unavailable, explain the limitation and provide reproducible curl/REST commands.
+- Never expose tokens in chat or committed files.

@@ -1,0 +1,40 @@
+---
+description: Self-review checklist before creating a merge request
+alwaysApply: false
+---
+# Skill: Self-review before merge request
+
+Use this skill to run through a quick self-review before opening or finalizing a merge request.
+
+## Code quality
+
+- [ ] Follows project style guide (Documentation/Development/style/readme.md and language-specific guides).
+- [ ] No commented-out code; no unnecessary debug logging.
+- [ ] Meaningful names; no magic numbers/strings without constants.
+- [ ] Functions/methods small and focused; single responsibility.
+
+## Tests and checks
+
+- [ ] Unit tests added or updated for new/changed behavior.
+- [ ] Backend: `mvn checkstyle:check test` passes.
+- [ ] Frontend: `gulp eslint test` (or equivalent) passes.
+- [ ] No sensitive data (passwords, tokens, keys) in code or commits.
+
+## Security and errors
+
+- [ ] User input validated/sanitized; parameterized queries (no string concatenation for SQL).
+- [ ] Errors handled gracefully; user-facing messages are clear, no raw stack traces.
+- [ ] Appropriate log levels; no logging of sensitive data.
+
+## Version control and docs
+
+- [ ] Branch name follows convention: `username/version/-XXXX_short_description` (see @contributing).
+- [ ] Commit messages in imperative mood; JIRA reference when applicable.
+- [ ] Documentation updated where behavior or API changed (see @update-documentation).
+
+## Merge request
+
+- [ ] Description explains what and why; links JIRA if applicable.
+- [ ] Reviewers assigned; ready for human review.
+
+Reference: .cursor/rules/general.mdc, .cursor/rules/contributing.mdc.
