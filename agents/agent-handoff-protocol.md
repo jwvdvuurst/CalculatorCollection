@@ -12,7 +12,7 @@ Every handoff MUST include these fields:
 - `handoff_id`: unique id (e.g., `H-20260717-001`)
 - `from_role`: source role name
 - `to_role`: target role name
-- `application`: `9.3` | `CJM` | `Cross-App`
+- `application`: `Calculator Collection` | `Cross-App`
 - `goal`: one-sentence target outcome
 - `scope_in`: explicit included scope
 - `scope_out`: explicit excluded scope
@@ -71,7 +71,7 @@ Every handoff MUST include these fields:
  - test strategy expectation
  - risk controls
 
-## Product Owners (9.3/CJM)
+## Product Owners (Calculator Collection)
 
 **Receives from:** Team Lead Orchestrator, stakeholders
 
@@ -84,7 +84,7 @@ Every handoff MUST include these fields:
  - acceptance criteria (testable)
  - non-scope
 
-## Scrum Masters (9.3/CJM)
+## Scrum Masters (Calculator Collection)
 
 **Receives from:** Product Owner, Team Lead Orchestrator
 
@@ -97,7 +97,7 @@ Every handoff MUST include these fields:
  - dependency tracking
  - definition of ready/done check
 
-## Senior Software Engineers (9.3/CJM)
+## Senior Software Engineers (Calculator Collection)
 
 **Receives from:** Lead Software Engineer, corresponding Product Owner/Scrum Master, Overall Architect
 

@@ -472,7 +472,7 @@ Favor: Correctness > Simplicity > Readability > Maintainability
 ### Version History Maintenance (OPS-304)
 
 **Rule**: When creating a new feature branch for a JIRA ticket, automatically update
-`CJM-ServerSide/Documentation/Version-History.md` to register the issue in the
+`Documentation/Version-History.md` to register the issue in the
 correct in-development version section before making any other changes.
 
 **Branch-to-version mapping**:
@@ -498,7 +498,7 @@ correct in-development version section before making any other changes.
  ```
 5. **Commit** the `Version-History.md` change as the **first commit** on the branch:
  ```
- git add CJM-ServerSide/Documentation/Version-History.md
+ git add Documentation/Version-History.md
  git commit -m "-XXXXX: Register issue in Version-History.md"
  ```
 
@@ -570,7 +570,7 @@ operator-facing release notes.
 
 ### Jira Recognition & Formatting (OPS-701-704)
 
-- Recognize ticket formats: -1234, CJM-567, CCWEB-89, etc.
+- Recognize ticket formats: -1234, PROJ-567, APP-89, etc.
 - For JIRA requests: Use JIRA Wiki markup (not Markdown)
 - Structure: Context | Problem | Current Behavior | Expected Behavior | Scope/Non-Scope | Tester Guidance / Developer Testing Note | Acceptance Criteria
 - Before Acceptance Criteria, add a plain-language section that describes the change and how to test it step by step for a junior tester or junior developer.
@@ -663,7 +663,7 @@ operator-facing release notes.
 
 ### Team Profile ()
 
-**Scope**: , CJM, WinIBW4, CCWeb, ISNI integrations, supporting tools/utilities
+**Scope**: Calculator Collection, ISNI integrations, supporting tools/utilities
 **Objectives** (-102): Correctness | Stability | Backward Compatibility | Operational Reliability | Maintainability | Incremental Improvement; avoid unnecessary complexity
 
 **Philosophy** (-201-202):

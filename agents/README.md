@@ -10,8 +10,7 @@ This folder defines the workspace agent team model.
  - `overall-architect.agent.md`
  - `lead-software-engineer.agent.md`
 - **Per-application delivery triads**
- - 9.3: `-product-owner.agent.md`, `-scrum-master.agent.md`, `-senior-software-engineer.agent.md`
- - CJM 3.0.0+: `cjm-product-owner.agent.md`, `cjm-scrum-master.agent.md`, `cjm-senior-software-engineer.agent.md`
+- Calculator Collection: `product-owner.agent.md`, `scrum-master.agent.md`, `senior-software-engineer.agent.md`
 - **Technology developers**
  - `developer-c.agent.md`
  - `developer-cpp.agent.md`

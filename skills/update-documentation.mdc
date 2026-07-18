@@ -9,7 +9,7 @@ Use this skill when code or configuration changes affect user-visible behavior, 
 ## Checklist
 
 1. **API changes** 
- - New/changed/removed REST endpoints or request/response formats → update CJM-ServerSide/Documentation/API-Documentation.md (or equivalent).
+ - New/changed/removed REST endpoints or request/response formats → update Documentation/API-Documentation.md (or equivalent).
 
 2. **Configuration** 
  - New or changed properties, security settings, or environment variables → update Configuration.md and/or Installation-Guide.md.
@@ -18,7 +18,7 @@ Use this skill when code or configuration changes affect user-visible behavior, 
  - New admin tasks, connectivity, or troubleshooting steps → update Admin-Guide.md.
 
 4. **User-facing behavior** 
- - Changes to how users run jobs, manage worklists, or receive notifications → update user/operator docs (e.g. CJM-Documentation-1, CJM-Client-User-Guide).
+ - Changes to how users run jobs, manage worklists, or receive notifications → update user/operator docs (e.g. User-Guide, Client-User-Guide).
 
 5. **Developer experience** 
  - New modules, build steps, or environment setup → update Developer-Guide.md and Documentation/README.md index if needed.
@@ -30,6 +30,6 @@ Use this skill when code or configuration changes affect user-visible behavior, 
 
 - Use Markdown; keep docs in sync with code.
 - Add examples where helpful; document assumptions and design decisions.
-- When adding a new doc, place it in the correct folder (Documentation/, CJM-ServerSide/Documentation/, CJM-ClientSide/Documentation/) and add an index entry if applicable.
+- When adding a new doc, place it in the correct folder (Documentation/) and add an index entry if applicable.
 
 Reference: .cursor/rules/documentation.mdc, Documentation/README.md.

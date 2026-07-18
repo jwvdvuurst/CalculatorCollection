@@ -10,15 +10,9 @@ This file is the single source of truth for team-level tooling resources.
 
 ## Application resource mapping
 
- - 9.3
+ - Calculator Collection
  - Jira project: `TEAM`
  - Confluence space: `TEAM`
-- CJM
- - Jira project: `TEAM`
- - Confluence space: `TEAM`
-- WinIBW4
- - Jira project: `WIN4`
- - Confluence: none (no dedicated space)
 
 ## External collaboration mapping
 
@@ -28,7 +22,6 @@ This file is the single source of truth for team-level tooling resources.
 
 ## Usage rules
 
-- For 9.3 and CJM items, default to Jira `TEAM` and Confluence `TEAM` unless explicitly overridden by task context.
-- For WinIBW4 items, use Jira `WIN4` and do not assume Confluence documentation exists.
+- For Calculator Collection items, default to Jira `TEAM` and Confluence `TEAM` unless explicitly overridden by task context.
 - For installation/support coordination with Operations, create or link Jira issues in `OPS` and cross-reference originating team issues.
 - Execute Jira/Confluence actions via `atlassian-onprem` MCP tools and include instance/project context explicitly.

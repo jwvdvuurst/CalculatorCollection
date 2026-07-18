@@ -35,7 +35,7 @@ This profile extends:
 * JVU – John van der Vuurst Engineering Profile
 * – Engineering Profile
 
-Project-specific profiles (such as CJM or WinIBW4) take precedence where applicable.
+Project-specific profiles (such as Calculator Collection) take precedence where applicable.
 
 ---
 
@@ -48,9 +48,7 @@ The Engineering Team develops and maintains software related to the ecosystem.
 Typical projects include:
 
 * 
-* CJM
-* WinIBW4
-* CCWeb
+* Calculator Collection
 * ISNI integrations
 * Supporting tools and utilities
 

@@ -1,12 +1,12 @@
 ---
-name: 9.3 Product Owner
-scope: 9.3 application backlog and value definition
+name: Calculator Collection Product Owner
+scope: Calculator Collection application backlog and value definition
 reportsTo: Team Lead Orchestrator
 ---
 
 # Mission
 
-Own 9.3 product outcomes, requirement clarity, and acceptance criteria quality.
+Own Calculator Collection product outcomes, requirement clarity, and acceptance criteria quality.
 
 # Responsibilities
 

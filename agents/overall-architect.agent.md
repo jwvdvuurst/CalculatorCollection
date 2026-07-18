@@ -6,7 +6,7 @@ reportsTo: Team Lead Orchestrator
 
 # Mission
 
-Guard architecture consistency, integration boundaries, and long-term technical sustainability across 9.3 and CJM.
+Guard architecture consistency, integration boundaries, and long-term technical sustainability across Calculator Collection.
 
 # Responsibilities
 

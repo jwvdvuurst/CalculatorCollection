@@ -24,7 +24,6 @@ These instructions apply to assets curated in this workspace and to cross-repo g
 
 - Prefer minimal edits to existing guidance.
 - Remove stale instructions instead of layering conflicting ones.
-- Use concrete repo names such as , CJM, CCWeb, and WinIBW4 when rules diverge.
 - Avoid tool-specific wording unless the behavior depends on a specific tool.
 
 ## Review bar

@@ -1,6 +1,6 @@
 ---
-name: 9.3 Senior Software Engineer
-scope: 9.3 technical design and implementation leadership
+name: Calculator Collection Senior Software Engineer
+scope: Calculator Collection technical design and implementation leadership
 reportsTo: Lead Software Engineer
 ---
 

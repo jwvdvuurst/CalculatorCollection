@@ -32,7 +32,7 @@ This profile extends:
 * ARS – AI Review Standard
 * APS – AI Prompt Standard
 
-Project-specific profiles (for example, or CJM) take precedence where applicable.
+Project-specific profiles (for example, Calculator Collection) take precedence where applicable.
 
 ---
 
