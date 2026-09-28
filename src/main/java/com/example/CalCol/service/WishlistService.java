@@ -2,9 +2,11 @@ package com.example.CalCol.service;
 
 import com.example.CalCol.entity.Calculator;
 import com.example.CalCol.entity.Label;
+import com.example.CalCol.entity.UserCalculatorCollection;
 import com.example.CalCol.entity.WishlistItem;
 import com.example.CalCol.repository.CalculatorLabelRepository;
 import com.example.CalCol.repository.CalculatorRepository;
+import com.example.CalCol.repository.UserCalculatorCollectionRepository;
 import com.example.CalCol.repository.WishlistItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,6 +24,13 @@ public class WishlistService {
 	private final WishlistItemRepository wishlistRepository;
 	private final CalculatorRepository calculatorRepository;
 	private final CalculatorLabelRepository calculatorLabelRepository;
+	private final UserCalculatorCollectionRepository userCollectionRepository;
+
+	public enum MoveToCollectionResult {
+		MOVED,
+		WISHLIST_ITEM_NOT_FOUND,
+		ALREADY_IN_COLLECTION
+	}
 
 	public Page<WishlistItem> getUserWishlist(String username, Pageable pageable) {
 		return wishlistRepository.findByUsernameOrderByAddedAtDesc(username, pageable);
@@ -133,6 +142,25 @@ public class WishlistService {
 
 		wishlistRepository.delete(wishlistOpt.get());
 		return true;
+	}
+
+	@Transactional
+	public MoveToCollectionResult moveToCollection(String username, Long calculatorId) {
+		Optional<WishlistItem> wishlistItem = wishlistRepository.findByUsernameAndCalculatorId(username, calculatorId);
+		if (wishlistItem.isEmpty()) {
+			return MoveToCollectionResult.WISHLIST_ITEM_NOT_FOUND;
+		}
+		if (userCollectionRepository.existsByUsernameAndCalculatorId(username, calculatorId)) {
+			return MoveToCollectionResult.ALREADY_IN_COLLECTION;
+		}
+
+		UserCalculatorCollection collectionItem = new UserCalculatorCollection();
+		collectionItem.setUsername(username);
+		collectionItem.setCalculator(wishlistItem.get().getCalculator());
+		collectionItem.setNotes(wishlistItem.get().getNotes());
+		userCollectionRepository.save(collectionItem);
+		wishlistRepository.delete(wishlistItem.get());
+		return MoveToCollectionResult.MOVED;
 	}
 
 	public boolean isInWishlist(String username, Long calculatorId) {

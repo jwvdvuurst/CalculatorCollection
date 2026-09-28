@@ -55,7 +55,7 @@ public class EnrichmentService {
 		List<CalculatorImage> images = calculatorImageRepository.findByCalculatorIdAndIsApprovedTrue(calculator.getId());
 		List<String> imageUrls = new ArrayList<>();
 		for (CalculatorImage image : images) {
-			String imageUrl = buildImageUrl(image.getImagePath());
+			String imageUrl = buildImageUrl(image);
 			imageUrls.add(imageUrl);
 		}
 		
@@ -172,7 +172,7 @@ public class EnrichmentService {
 		List<CalculatorImage> images = calculatorImageRepository.findByCalculatorIdAndIsApprovedTrue(calculator.getId());
 		List<String> imageUrls = new ArrayList<>();
 		for (CalculatorImage image : images) {
-			imageUrls.add(buildImageUrl(image.getImagePath()));
+			imageUrls.add(buildImageUrl(image));
 		}
 		info.setImageUrls(imageUrls);
 		
@@ -278,14 +278,14 @@ public class EnrichmentService {
 		return cleanAndDeduplicateQuery(imageQuery);
 	}
 
-	private String buildImageUrl(String imagePath) {
+	private String buildImageUrl(CalculatorImage image) {
+		String path = "/api/calculators/" + image.getCalculator().getId() + "/images/" + image.getId() + "/data";
 		if (baseUrl != null && !baseUrl.isEmpty()) {
-			return baseUrl + "/uploads/" + imagePath;
+			return baseUrl + path;
 		}
 		// Fallback to relative URL
 		return ServletUriComponentsBuilder.fromCurrentContextPath()
-			.path("/uploads/")
-			.path(imagePath)
+			.path(path)
 			.toUriString();
 	}
 }

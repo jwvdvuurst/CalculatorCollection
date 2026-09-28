@@ -63,7 +63,7 @@ public class DtoMapperService {
 		ImageDTO dto = new ImageDTO();
 		dto.setId(image.getId());
 		dto.setImagePath(image.getImagePath());
-		dto.setImageUrl(buildImageUrl(image.getImagePath()));
+		dto.setImageUrl(buildImageUrl(image));
 		dto.setUploadedBy(image.getUploadedBy());
 		dto.setIsProposal(image.getIsProposal());
 		dto.setIsApproved(image.getIsApproved());
@@ -165,13 +165,13 @@ public class DtoMapperService {
 		return dto;
 	}
 
-	private String buildImageUrl(String imagePath) {
+	private String buildImageUrl(CalculatorImage image) {
+		String path = "/api/calculators/" + image.getCalculator().getId() + "/images/" + image.getId() + "/data";
 		if (baseUrl != null && !baseUrl.isEmpty()) {
-			return baseUrl + "/uploads/" + imagePath;
+			return baseUrl + path;
 		}
 		return ServletUriComponentsBuilder.fromCurrentContextPath()
-			.path("/uploads/")
-			.path(imagePath)
+			.path(path)
 			.toUriString();
 	}
 }

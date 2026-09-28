@@ -58,6 +58,8 @@ app.search.brave.api-key=
 app.price.update.enabled=true
 # Enable/disable scheduled price updates
 app.price.update.schedule.enabled=true
+# Enable the weekly job separately when it is needed in addition to the daily job
+app.price.update.weekly.enabled=false
 # Cron expression for daily price updates (default: 2 AM daily)
 # Format: second, minute, hour, day of month, month, day of week
 app.price.update.cron=0 0 2 * * ?

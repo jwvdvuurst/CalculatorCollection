@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -20,7 +21,7 @@ import java.util.Map;
 @Slf4j
 public class EmailService {
 
-	private final JavaMailSender mailSender;
+	private final ObjectProvider<JavaMailSender> mailSenderProvider;
 	private final TemplateEngine templateEngine;
 
 	@Value("${spring.mail.host:}")
@@ -41,8 +42,8 @@ public class EmailService {
 	private String baseUrl;
 
 	@Autowired
-	public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
-		this.mailSender = mailSender;
+	public EmailService(ObjectProvider<JavaMailSender> mailSenderProvider, TemplateEngine templateEngine) {
+		this.mailSenderProvider = mailSenderProvider;
 		this.templateEngine = templateEngine;
 	}
 
@@ -59,6 +60,10 @@ public class EmailService {
 	}
 
 	public void sendSimpleEmail(String to, String subject, String text) {
+		JavaMailSender mailSender = getMailSender();
+		if (mailSender == null) {
+			return;
+		}
 		try {
 			SimpleMailMessage message = new SimpleMailMessage();
 			message.setFrom(fromEmail);
@@ -74,6 +79,10 @@ public class EmailService {
 	}
 
 	public void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
+		JavaMailSender mailSender = getMailSender();
+		if (mailSender == null) {
+			return;
+		}
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -97,6 +106,14 @@ public class EmailService {
 			log.error("Failed to send HTML email to: {}", to, e);
 			throw new RuntimeException("Failed to send HTML email", e);
 		}
+	}
+
+	private JavaMailSender getMailSender() {
+		JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+		if (mailSender == null) {
+			log.debug("Email delivery is disabled because spring.mail.host is not configured");
+		}
+		return mailSender;
 	}
 
 	public void sendCollectionSharedEmail(String to, String sharedBy, String shareTitle, String shareUrl) {

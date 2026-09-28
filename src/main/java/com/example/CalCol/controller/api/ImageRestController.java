@@ -284,9 +284,11 @@ public class ImageRestController {
 		}
 
 		String username = authentication.getName();
+		boolean isAdmin = authentication.getAuthorities().stream()
+			.anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
 
 		try {
-			boolean deleted = imageService.deleteImage(imageId, username);
+			boolean deleted = imageService.deleteImage(calculatorId, imageId, username, isAdmin);
 			if (deleted) {
 				return ResponseEntity.ok(ApiResponse.success("Image deleted successfully", null));
 			} else {

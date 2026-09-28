@@ -88,11 +88,17 @@ public class LinkRestController {
 		}
 
 		String username = authentication.getName();
+		boolean isAdmin = authentication.getAuthorities().stream()
+			.anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
 
 		try {
-			com.example.CalCol.entity.CalculatorLink link = linkService.updateLink(linkId, url, title, description, username);
+			com.example.CalCol.entity.CalculatorLink link = linkService.updateLink(
+				calculatorId, linkId, url, title, description, username, isAdmin);
 			LinkDTO dto = dtoMapper.toLinkDTO(link);
 			return ResponseEntity.ok(ApiResponse.success("Link updated successfully", dto));
+		} catch (org.springframework.security.access.AccessDeniedException e) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(ApiResponse.error("You do not have permission to update this link"));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ApiResponse.error("Link not found or you don't have permission to update it"));
