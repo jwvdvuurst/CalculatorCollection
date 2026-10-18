@@ -29,6 +29,14 @@ spring.servlet.multipart.max-request-size=10MB
 
 # Upload Directory
 app.upload.dir=uploads
+app.upload.max-bytes=10485760
+app.upload.max-pixels=20000000
+
+# Optional first-run administrator. No accounts are created by default.
+# Supply APP_BOOTSTRAP_ADMIN_PASSWORD through the environment, then remove it after setup.
+app.bootstrap.admin.username=admin
+app.bootstrap.admin.email=
+app.bootstrap.admin.password=${APP_BOOTSTRAP_ADMIN_PASSWORD:}
 
 # Base URL for generating absolute URLs (leave empty for auto-detection)
 app.base-url=

@@ -22,6 +22,7 @@ public class ImageService {
 	private final CalculatorImageRepository imageRepository;
 	private final CalculatorRepository calculatorRepository;
 	private final FileStorageService fileStorageService;
+	private final CurrentUserService currentUserService;
 
 	@Transactional
 	public CalculatorImage uploadImage(Long calculatorId, MultipartFile file, String username, boolean proposeForRepository) throws IOException {
@@ -37,7 +38,7 @@ public class ImageService {
 		image.setImagePath(filename);
 		image.setUploadedBy(username);
 		image.setIsProposal(proposeForRepository);
-		image.setIsApproved(!proposeForRepository); // If not a proposal, auto-approve for user's own collection
+		image.setIsApproved(!proposeForRepository && currentUserService.isAdmin(username));
 
 		return imageRepository.save(image);
 	}
@@ -86,8 +87,7 @@ public class ImageService {
 		}
 
 		CalculatorImage image = imageOpt.get();
-		// Only allow deletion if user owns it or it's not approved
-		if (!image.getUploadedBy().equals(username) && image.getIsApproved()) {
+		if (!image.getUploadedBy().equals(username)) {
 			return false;
 		}
 
@@ -117,7 +117,7 @@ public class ImageService {
 		image.setImagePath(filename);
 		image.setUploadedBy(username);
 		image.setIsProposal(proposeForRepository);
-		image.setIsApproved(!proposeForRepository); // If not a proposal, auto-approve for user's own collection
+		image.setIsApproved(!proposeForRepository && currentUserService.isAdmin(username));
 
 		return imageRepository.save(image);
 	}

@@ -214,7 +214,7 @@ public class CalculatorController {
 		model.addAttribute("collectionCount", calculatorService.getUserCollectionCount(username));
 		model.addAttribute("username", username);
 		model.addAttribute("statistics", statisticsService.getCollectionStatistics(username));
-		model.addAttribute("emailServiceAvailable", emailService != null);
+		model.addAttribute("emailServiceAvailable", emailService != null && emailService.isAvailable());
 
 		return "calculators/collection";
 	}
@@ -228,7 +228,7 @@ public class CalculatorController {
 			return "redirect:/login";
 		}
 
-		if (emailService == null) {
+		if (emailService == null || !emailService.isAvailable()) {
 			redirectAttributes.addFlashAttribute("errorMessage", 
 				"Email service is not configured. Please configure email settings in application.properties.");
 			return "redirect:/calculators/collection";
@@ -1016,7 +1016,7 @@ public class CalculatorController {
 		model.addAttribute("collection", calculatorService.getUserCollection(username, 
 			org.springframework.data.domain.Pageable.unpaged()).getContent());
 		model.addAttribute("shares", shareService.getUserShares(username));
-		model.addAttribute("emailServiceAvailable", emailService != null);
+		model.addAttribute("emailServiceAvailable", emailService != null && emailService.isAvailable());
 		return "calculators/share";
 	}
 
@@ -1044,7 +1044,7 @@ public class CalculatorController {
 				.path("/calculators/share/" + share.getShareToken()).toUriString();
 			
 			// Send email if provided and email service is available
-			if (emailTo != null && !emailTo.trim().isEmpty() && emailService != null) {
+			if (emailTo != null && !emailTo.trim().isEmpty() && emailService != null && emailService.isAvailable()) {
 				try {
 					emailService.sendCollectionSharedEmail(emailTo, username, title, shareUrl);
 					redirectAttributes.addFlashAttribute("successMessage", 

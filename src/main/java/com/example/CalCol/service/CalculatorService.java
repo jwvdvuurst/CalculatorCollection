@@ -207,6 +207,10 @@ public class CalculatorService {
 	
 	@Transactional
 	public boolean mergeManufacturers(Long targetManufacturerId, Long sourceManufacturerId, String newName) {
+		if (targetManufacturerId == null || sourceManufacturerId == null
+				|| targetManufacturerId.equals(sourceManufacturerId)) {
+			return false;
+		}
 		Optional<Manufacturer> targetOpt = manufacturerRepository.findById(targetManufacturerId);
 		Optional<Manufacturer> sourceOpt = manufacturerRepository.findById(sourceManufacturerId);
 		
@@ -222,30 +226,9 @@ public class CalculatorService {
 			manufacturerRepository.save(target);
 		}
 		
-		// Use a direct SQL update to change manufacturer_id for all calculators
-		// This bypasses JPA relationship management and avoids orphanRemoval issues
-		// The update happens directly in the database, so calculators are moved without
-		// triggering the cascade delete behavior
-		int updatedCount = calculatorRepository.updateManufacturerForCalculators(sourceManufacturerId, targetManufacturerId);
-		
-		// Flush to ensure the update is persisted
-		calculatorRepository.flush();
-		
-		// Reload the source manufacturer from database to get the updated state
-		// After the SQL update, the calculators should no longer reference this manufacturer
-		sourceOpt = manufacturerRepository.findById(sourceManufacturerId);
-		if (sourceOpt.isEmpty()) {
-			return false; // Should not happen, but check anyway
-		}
-		
-		Manufacturer source = sourceOpt.get();
-		
-		// Clear the list to ensure it's empty (the SQL update already moved them in DB,
-		// but the entity might still have them in memory)
-		source.getCalculators().clear();
-		manufacturerRepository.save(source);
-		
-		// Now safe to delete the source manufacturer
+		// Flush pending changes, move calculators, and clear stale managed relationships.
+		calculatorRepository.updateManufacturerForCalculators(sourceManufacturerId, targetManufacturerId);
+		Manufacturer source = manufacturerRepository.findById(sourceManufacturerId).orElseThrow();
 		manufacturerRepository.delete(source);
 		
 		return true;

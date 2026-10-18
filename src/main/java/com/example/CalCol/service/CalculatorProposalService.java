@@ -89,7 +89,7 @@ public class CalculatorProposalService {
 		proposalRepository.save(proposal);
 
 		// Send email notification if email service is available
-		if (emailService != null && proposal.getProposedBy() != null) {
+		if (emailService != null && emailService.isAvailable() && proposal.getProposedBy() != null) {
 			userRepository.findByUsername(proposal.getProposedBy()).ifPresent(user -> {
 				if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
 					try {
@@ -123,7 +123,7 @@ public class CalculatorProposalService {
 		String proposedBy = proposal.getProposedBy();
 		
 		// Send email notification if email service is available
-		if (emailService != null && proposedBy != null) {
+		if (emailService != null && emailService.isAvailable() && proposedBy != null) {
 			userRepository.findByUsername(proposedBy).ifPresent(user -> {
 				if (user.getEmail() != null && !user.getEmail().trim().isEmpty()) {
 					try {

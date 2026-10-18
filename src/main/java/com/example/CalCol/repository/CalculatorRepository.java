@@ -46,7 +46,7 @@ public interface CalculatorRepository extends JpaRepository<Calculator, Long> {
 	@Query("SELECT c FROM Calculator c JOIN FETCH c.manufacturer")
 	java.util.List<Calculator> findAllWithManufacturer();
 	
-	@Modifying
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("UPDATE Calculator c SET c.manufacturer.id = :targetManufacturerId WHERE c.manufacturer.id = :sourceManufacturerId")
 	int updateManufacturerForCalculators(@Param("sourceManufacturerId") Long sourceManufacturerId, 
 										 @Param("targetManufacturerId") Long targetManufacturerId);

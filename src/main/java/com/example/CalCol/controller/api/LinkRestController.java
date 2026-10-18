@@ -90,9 +90,14 @@ public class LinkRestController {
 		String username = authentication.getName();
 
 		try {
+			if (!linkService.belongsToCalculator(linkId, calculatorId)) {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Link not found"));
+			}
 			com.example.CalCol.entity.CalculatorLink link = linkService.updateLink(linkId, url, title, description, username);
 			LinkDTO dto = dtoMapper.toLinkDTO(link);
 			return ResponseEntity.ok(ApiResponse.success("Link updated successfully", dto));
+		} catch (org.springframework.security.access.AccessDeniedException e) {
+			return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.error("You cannot edit this link"));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ApiResponse.error("Link not found or you don't have permission to update it"));

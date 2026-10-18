@@ -66,7 +66,7 @@ public class CollectionRestController {
 		Page<CalculatorDTO> dtoPage = collection.map(item -> {
 			Calculator calc = item.getCalculator();
 			List<com.example.CalCol.entity.Label> labels = labelService.getCalculatorLabels(calc.getId());
-			List<com.example.CalCol.entity.CalculatorImage> images = calculatorService.getApprovedImages(calc.getId());
+			List<com.example.CalCol.entity.CalculatorImage> images = calculatorService.getImagesForUser(calc.getId(), username);
 			List<com.example.CalCol.entity.CalculatorLink> links = calculatorService.getCalculatorLinks(calc.getId());
 			return dtoMapper.toCalculatorDTO(calc, labels, images, links);
 		});
@@ -259,7 +259,7 @@ public class CollectionRestController {
 				.body(ApiResponse.error("Authentication required"));
 		}
 
-		if (emailService == null) {
+		if (emailService == null || !emailService.isAvailable()) {
 			return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
 				.body(ApiResponse.error("Email service is not configured"));
 		}

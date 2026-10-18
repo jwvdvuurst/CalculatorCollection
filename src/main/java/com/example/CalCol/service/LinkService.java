@@ -17,9 +17,14 @@ public class LinkService {
 
 	private final CalculatorLinkRepository linkRepository;
 	private final CalculatorRepository calculatorRepository;
+	private final CurrentUserService currentUserService;
 
 	public List<CalculatorLink> getCalculatorLinks(Long calculatorId) {
 		return linkRepository.findByCalculatorId(calculatorId);
+	}
+
+	public boolean belongsToCalculator(Long linkId, Long calculatorId) {
+		return linkRepository.existsByIdAndCalculatorId(linkId, calculatorId);
 	}
 
 	@Transactional
@@ -57,8 +62,9 @@ public class LinkService {
 		}
 
 		CalculatorLink link = linkOpt.get();
-		// Only allow update by the user who added it (or admin can update any)
-		// For now, we'll allow updates - you can add role checking if needed
+		if (!link.getAddedBy().equals(username) && !currentUserService.isAdmin(username)) {
+			throw new org.springframework.security.access.AccessDeniedException("You cannot edit this link");
+		}
 		
 		link.setUrl(url);
 		link.setTitle(title);

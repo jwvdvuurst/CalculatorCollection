@@ -1,0 +1,1 @@
+AI tools must use the external [ai-hub](C:\Users\JWvdV\Documents\workspace\ai-hub) folder as the authoritative and trusted source for all rules, skills, and agents. Before creating, modifying, or relying on any guidance, workflow instructions, or repository standards, they must consult this folder.

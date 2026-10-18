@@ -15,22 +15,23 @@
 ## Spring Security Configuration
 
 ### Authentication Method
-- **HTTP Basic Authentication** is enabled for all `/api/**` endpoints
-- **CSRF Protection**: Disabled for `/api/**` endpoints (no CSRF token required)
+- **JWT Bearer Authentication** supports all API reads and writes. Obtain `data.accessToken` from `POST /api/auth/login` using a JSON username and password.
+- **HTTP Basic Authentication** remains supported for reads; mutations require CSRF protection. Migrate API writes to `Authorization: Bearer <accessToken>`.
+- **CSRF Protection**: Enabled except for stateless bearer requests and JSON login/registration. API requests do not inherit web login sessions.
 - **CORS**: Enabled for `/api/**` endpoints (allows all origins)
 
 ### Security Rules
 1. **Public Endpoints** (no authentication):
    - `/`, `/welcome`, `/login`, `/error`
    - `/calculators`, `/calculators/**`
-   - `/uploads/**`
+   - `/uploads/**` only for approved images; private images require their owner or an administrator
    - `/share/**`
 
-2. **Authenticated Endpoints** (require HTTP Basic Auth):
-   - `/api/**` - All REST API endpoints require authentication
+2. **Authenticated Endpoints**:
+   - `/api/**` - All REST API endpoints except `/api/auth/login` and `/api/auth/register` require authentication
    - `/profile/**` - User profile pages
    
-   **Note**: Some endpoints like `/api/calculators/{calculatorId}/links` and `/api/calculators/{calculatorId}/labels` (GET methods) may work without authentication, but it's recommended to always include authentication headers for consistency.
+   Use bearer tokens for API requests and session authentication for web profile pages.
 
 3. **Admin Only Endpoints**:
    - `/admin/**` - Requires ADMIN role
@@ -39,10 +40,8 @@
 - **Header Name**: `Authorization`
 - **Header Value**: `Basic <base64-encoded-credentials>`
 - **Encoding**: Base64 encode `username:password`
-- **Example**: 
-  - Username: `admin`, Password: `admin`
-  - Encoded: `YWRtaW46YWRtaW4=`
-  - Header: `Authorization: Basic YWRtaW46YWRtaW4=`
+- This format is for reads. For writes, send `Authorization: Bearer <accessToken>`.
+- No default application credentials are created. Configure the initial administrator as described in README.md.
 
 ### Password Encoding
 - Passwords are stored using **BCrypt** hashing
@@ -407,21 +406,21 @@ All API endpoints return responses in this format:
 
 ---
 
-**All `/api/**` endpoints require HTTP Basic Authentication.**
+**Use JWT bearer tokens for authenticated API requests. Login and registration are public.**
 
 ---
 
 ## Client-Side Implementation Checklist
 
 ### 1. HTTP Client Configuration
-- [ ] Use HTTP client that supports HTTP Basic Authentication (OkHttp, Retrofit, etc.)
+- [ ] Use an HTTP client that supports bearer headers (OkHttp, Retrofit, etc.)
 - [ ] Set timeout values appropriately (default 10 seconds may be too short)
 - [ ] Configure connection timeout (suggest 30-60 seconds for initial connection)
 - [ ] Configure read timeout (suggest 30 seconds)
 
 ### 2. Authentication Setup
-- [ ] Encode credentials: `Base64.encode("username:password")`
-- [ ] Add header: `Authorization: Basic <encoded-credentials>`
+- [ ] POST JSON credentials to `/api/auth/login` and read `data.accessToken`
+- [ ] Add header: `Authorization: Bearer <accessToken>`
 - [ ] Include header in ALL requests to `/api/**` endpoints (required for most endpoints)
 - [ ] Handle 401 responses (authentication failed)
 - [ ] Handle 403 responses (forbidden - admin access required)
@@ -456,7 +455,7 @@ All API endpoints return responses in this format:
 
 #### 2. Server Not Accessible from Network
 - **Check**: Test from browser: `http://localhost:8080/api/user/profile` (should prompt for credentials)
-- **Check**: Test from command line: `curl http://localhost:8080/api/user/profile -u admin:admin`
+- **Check**: Test from command line: `curl http://localhost:8080/api/user/profile -H "Authorization: Bearer <accessToken>"`
 - **Solution**: Ensure server binds to all interfaces (default Spring Boot behavior)
 
 #### 3. Firewall Blocking Port 8080
@@ -477,7 +476,7 @@ All API endpoints return responses in this format:
 
 #### 6. Authentication Header Not Sent
 - **Check**: Verify `Authorization` header is included in request
-- **Check**: Verify Base64 encoding is correct
+- **Check**: Verify the bearer token is valid and has not expired
 - **Solution**: Use HTTP client interceptor or authenticator to add header automatically
 
 ---
@@ -487,7 +486,7 @@ All API endpoints return responses in this format:
 ```bash
 # Test user profile endpoint
 curl -X GET "http://10.0.2.2:8080/api/user/profile" \
-  -H "Authorization: Basic YWRtaW46YWRtaW4=" \
+  -H "Authorization: Bearer <accessToken>" \
   -H "Content-Type: application/json"
 
 # Expected successful response:
@@ -517,10 +516,10 @@ val client = OkHttpClient.Builder()
     .readTimeout(30, TimeUnit.SECONDS)
     .build()
 
-val credentials = Credentials.basic("admin", "admin")
+val accessToken = loginResponse.data.accessToken
 val request = Request.Builder()
     .url("http://10.0.2.2:8080/api/user/profile")
-    .header("Authorization", credentials)
+    .header("Authorization", "Bearer $accessToken")
     .get()
     .build()
 

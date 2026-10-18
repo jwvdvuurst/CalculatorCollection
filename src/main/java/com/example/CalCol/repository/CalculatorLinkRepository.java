@@ -10,6 +10,7 @@ import java.util.List;
 public interface CalculatorLinkRepository extends JpaRepository<CalculatorLink, Long> {
 
 	List<CalculatorLink> findByCalculatorId(Long calculatorId);
+	boolean existsByIdAndCalculatorId(Long id, Long calculatorId);
 	
 	boolean existsByCalculatorIdAndUrl(Long calculatorId, String url);
 }

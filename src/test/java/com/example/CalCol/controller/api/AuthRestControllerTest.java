@@ -73,7 +73,7 @@ class AuthRestControllerTest {
 	@Test
 	void profileStillWorksWithHttpBasicAuth() throws Exception {
 		mockMvc.perform(get("/api/user/profile")
-				.with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("admin", "admin")))
+				.with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic("admin", "TestAdministrator123!")))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.success").value(true))
 			.andExpect(jsonPath("$.data.username").value("admin"));

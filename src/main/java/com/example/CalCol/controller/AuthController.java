@@ -105,7 +105,7 @@ public class AuthController {
 			PasswordResetToken token = tokenOpt.get();
 			String resetUrl = baseUrl + "/reset-password?token=" + token.getToken();
 
-			if (emailService != null) {
+			if (emailService != null && emailService.isAvailable()) {
 				try {
 					Map<String, Object> variables = Map.of(
 						"username", username,
@@ -120,7 +120,7 @@ public class AuthController {
 					log.error("Unexpected error sending password reset email to {}: {}", email, e.getMessage(), e);
 				}
 			} else {
-				log.warn("Email service not configured. Password reset token generated but email not sent. Token: {}", token.getToken());
+				log.warn("Email service not configured. Password reset email was not sent.");
 				log.warn("To enable email functionality, configure spring.mail.host in application.properties");
 			}
 		} else {

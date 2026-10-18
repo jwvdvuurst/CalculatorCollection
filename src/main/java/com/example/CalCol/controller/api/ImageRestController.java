@@ -92,6 +92,8 @@ public class ImageRestController {
 
 			ImageDTO dto = dtoMapper.toImageDTO(image);
 			return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", dto));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 				.body(ApiResponse.error("Failed to upload image: " + e.getMessage()));
@@ -106,7 +108,7 @@ public class ImageRestController {
 			"Can be proposed for approval or directly approved if user is admin.")
 	public ResponseEntity<ApiResponse<ImageDTO>> uploadImageBinary(
 			@Parameter(description = "Calculator ID") @PathVariable Long calculatorId,
-			@Parameter(description = "Image binary data") @RequestBody byte[] imageData,
+			jakarta.servlet.http.HttpServletRequest request,
 			@Parameter(description = "Content-Type header (image/jpeg, image/png, image/gif, image/webp)") 
 				@RequestHeader(value = "Content-Type", required = false) String contentType,
 			@Parameter(description = "Propose for approval (true) or auto-approve if admin (false)") 
@@ -118,17 +120,13 @@ public class ImageRestController {
 				.body(ApiResponse.error("Authentication required"));
 		}
 
-		if (imageData == null || imageData.length == 0) {
-			return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-				.body(ApiResponse.error("Image data is empty"));
-		}
-
 		String username = authentication.getName();
 		boolean isAdmin = authentication.getAuthorities().stream()
 			.anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
 		try {
 			// Determine file extension and MIME type from Content-Type
+			byte[] imageData = fileStorageService.readImageBytes(request.getInputStream());
 			String extension;
 			final String mimeType;
 			if (contentType != null) {
@@ -188,6 +186,8 @@ public class ImageRestController {
 
 			ImageDTO dto = dtoMapper.toImageDTO(image);
 			return ResponseEntity.ok(ApiResponse.success("Image uploaded successfully", dto));
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(ApiResponse.error(e.getMessage()));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 				.body(ApiResponse.error("Failed to upload image: " + e.getMessage()));

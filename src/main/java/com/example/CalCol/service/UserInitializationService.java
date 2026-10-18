@@ -5,6 +5,7 @@ import com.example.CalCol.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,12 @@ public class UserInitializationService implements CommandLineRunner {
 
 	private final UserRepository userRepository;
 	private final PasswordEncoder passwordEncoder;
+	@Value("${app.bootstrap.admin.username:admin}")
+	private String adminUsername;
+	@Value("${app.bootstrap.admin.email:}")
+	private String adminEmail;
+	@Value("${app.bootstrap.admin.password:}")
+	private String adminPassword;
 
 	@Override
 	@Transactional
@@ -27,33 +34,22 @@ public class UserInitializationService implements CommandLineRunner {
 			return;
 		}
 
-		log.info("Initializing default users...");
-
-		// Create admin user
-		if (!userRepository.existsByUsername("admin")) {
-			AppUser admin = new AppUser();
-			admin.setUsername("admin");
-			admin.setEmail("admin@calcol.example.com");
-			admin.setPassword(passwordEncoder.encode("admin"));
-			admin.setRole("ADMIN");
-			admin.setEnabled(true);
-			userRepository.save(admin);
-			log.info("Created admin user");
+		if (adminPassword.isBlank()) {
+			log.info("No bootstrap administrator configured. No default accounts will be created.");
+			return;
 		}
-
-		// Create regular user
-		if (!userRepository.existsByUsername("user")) {
-			AppUser user = new AppUser();
-			user.setUsername("user");
-			user.setEmail("user@calcol.example.com");
-			user.setPassword(passwordEncoder.encode("user"));
-			user.setRole("USER");
-			user.setEnabled(true);
-			userRepository.save(user);
-			log.info("Created user");
+		if (adminUsername.isBlank() || !adminEmail.contains("@") || adminPassword.length() < 12
+				|| adminPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
+			throw new IllegalStateException("Bootstrap administrator requires a username, email and password of 12 or more characters (at most 72 UTF-8 bytes)");
 		}
-
-		log.info("User initialization completed.");
+		AppUser admin = new AppUser();
+		admin.setUsername(adminUsername);
+		admin.setEmail(adminEmail);
+		admin.setPassword(passwordEncoder.encode(adminPassword));
+		admin.setRole("ADMIN");
+		admin.setEnabled(true);
+		userRepository.save(admin);
+		log.info("Created configured bootstrap administrator");
 	}
 }
 

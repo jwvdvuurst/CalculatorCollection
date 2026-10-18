@@ -12,6 +12,7 @@ import java.util.List;
 
 @Repository
 public interface CalculatorImageRepository extends JpaRepository<CalculatorImage, Long> {
+	java.util.Optional<CalculatorImage> findByImagePath(String imagePath);
 
 	List<CalculatorImage> findByCalculatorIdAndIsApprovedTrue(Long calculatorId);
 

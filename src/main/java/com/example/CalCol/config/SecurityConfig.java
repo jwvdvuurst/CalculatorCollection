@@ -3,6 +3,8 @@ package com.example.CalCol.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.core.annotation.Order;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -33,24 +35,52 @@ public class SecurityConfig {
 	}
 
 	@Bean
+	@Order(1)
+	public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+		http.securityMatcher("/api/**")
+			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.authorizeHttpRequests(auth -> auth
+				.requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
+				.anyRequest().authenticated())
+			.csrf(csrf -> csrf
+				.ignoringRequestMatchers("/api/auth/register", "/api/auth/login")
+				// Safe only in this stateless chain: an invalid bearer cannot fall back to a web session.
+				.ignoringRequestMatchers(request -> {
+					String authorization = request.getHeader("Authorization");
+					return authorization != null && authorization.startsWith("Bearer ");
+				}))
+			.userDetailsService(userDetailsService)
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.httpBasic(basic -> {})
+			.requestCache(cache -> cache.disable());
+		return http.build();
+	}
+
+	@Bean
+	public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration() {
+		FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>(jwtAuthenticationFilter);
+		registration.setEnabled(false);
+		return registration;
+	}
+
+	@Bean
+	@Order(2)
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
 			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers("/", "/welcome", "/login", "/error").permitAll()
 				.requestMatchers("/register", "/forgot-password", "/reset-password").permitAll()
-				.requestMatchers("/api/auth/register", "/api/auth/login").permitAll()
 				.requestMatchers("/calculators", "/calculators/**").permitAll()
 				.requestMatchers("/uploads/**").permitAll()
 				.requestMatchers("/h2-console/**").permitAll()
 				.requestMatchers("/share/**").permitAll()
-				.requestMatchers("/api/**").authenticated()
 				.requestMatchers("/admin/**").hasRole("ADMIN")
 				.requestMatchers("/profile/**").authenticated()
 				.anyRequest().authenticated()
 			)
 			.csrf(csrf -> csrf
-				.ignoringRequestMatchers("/h2-console/**", "/api/**")
+				.ignoringRequestMatchers("/h2-console/**")
 			)
 			.headers(headers -> headers
 				.frameOptions(frame -> frame.sameOrigin())

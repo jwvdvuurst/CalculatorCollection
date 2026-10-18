@@ -9,11 +9,17 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.URL;
-import java.nio.file.FileAlreadyExistsException;
+import java.io.InputStream;
+import java.io.ByteArrayInputStream;
+import java.net.HttpURLConnection;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.MemoryCacheImageInputStream;
+import java.util.Locale;
+import java.util.Set;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.util.UUID;
 
 @Service
@@ -22,43 +28,72 @@ public class FileStorageService {
 
 	@Value("${app.upload.dir:uploads}")
 	private String uploadDir;
+	@Value("${app.upload.max-bytes:10485760}")
+	private int maxBytes;
+	@Value("${app.upload.max-pixels:20000000}")
+	private long maxPixels;
 
 	public String storeFile(MultipartFile file) throws IOException {
 		if (file.isEmpty()) {
 			throw new IllegalArgumentException("File is empty");
 		}
 
-		// Validate file type
-		String originalFilename = file.getOriginalFilename();
-		if (originalFilename == null) {
-			throw new IllegalArgumentException("Filename is null");
+		if (file.getSize() > maxBytes) {
+			throw new IllegalArgumentException("Image exceeds the upload size limit");
 		}
-
-		String extension = "";
-		int lastDotIndex = originalFilename.lastIndexOf('.');
-		if (lastDotIndex > 0) {
-			extension = originalFilename.substring(lastDotIndex);
+		try (InputStream input = file.getInputStream()) {
+			return storeImage(input);
 		}
+	}
 
-		// Generate unique filename
-		String uniqueFilename = UUID.randomUUID().toString() + extension;
-
-		// Create upload directory if it doesn't exist
-		Path uploadPath = Paths.get(uploadDir);
-		if (!Files.exists(uploadPath)) {
-			Files.createDirectories(uploadPath);
+	private String storeImage(InputStream input) throws IOException {
+		byte[] bytes = readImageBytes(input);
+		String format;
+		try (var imageInput = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+			var readers = ImageIO.getImageReaders(imageInput);
+			if (!readers.hasNext()) {
+				throw new IllegalArgumentException("Only valid JPEG, PNG, GIF and WebP images are accepted");
+			}
+			ImageReader reader = readers.next();
+			try {
+				format = reader.getFormatName().toLowerCase(Locale.ROOT);
+				if (!Set.of("jpeg", "png", "gif", "webp").contains(format)) {
+					throw new IllegalArgumentException("Unsupported image format");
+				}
+				reader.setInput(imageInput, true, true);
+				int width = reader.getWidth(0);
+				int height = reader.getHeight(0);
+				if (width <= 0 || height <= 0 || (long) width * height > maxPixels) {
+					throw new IllegalArgumentException("Image dimensions exceed the pixel limit");
+				}
+				if (reader.read(0) == null) {
+					throw new IllegalArgumentException("Invalid image data");
+				}
+			} finally {
+				reader.dispose();
+			}
+		} catch (IOException e) {
+			throw new IllegalArgumentException("Invalid image data", e);
 		}
+		String filename = UUID.randomUUID() + "." + (format.equals("jpeg") ? "jpg" : format);
+		Files.createDirectories(Paths.get(uploadDir));
+		Files.write(loadFile(filename), bytes);
+		return filename;
+	}
 
-		// Save file
-		Path filePath = uploadPath.resolve(uniqueFilename);
-		Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-		log.info("File saved: {}", filePath);
-		return uniqueFilename;
+	public byte[] readImageBytes(InputStream input) throws IOException {
+		byte[] bytes = input.readNBytes(maxBytes + 1);
+		if (bytes.length == 0 || bytes.length > maxBytes) {
+			throw new IllegalArgumentException("Image is empty or exceeds the upload size limit");
+		}
+		return bytes;
 	}
 
 	public Path loadFile(String filename) {
-		return Paths.get(uploadDir).resolve(filename);
+		if (filename == null || !filename.matches("[A-Za-z0-9_-]+\\.[A-Za-z0-9]+")) {
+			throw new IllegalArgumentException("Invalid image filename");
+		}
+		return Paths.get(uploadDir).toAbsolutePath().normalize().resolve(filename);
 	}
 
 	public boolean deleteFile(String filename) {
@@ -78,36 +113,20 @@ public class FileStorageService {
 		try {
 			URL url = validateImageUrl(imageUrl);
 
-			// Determine file extension from URL or content type
-			String extension = ".jpg"; // default
-			String path = url.getPath().toLowerCase();
-			if (path.endsWith(".png")) {
-				extension = ".png";
-			} else if (path.endsWith(".gif")) {
-				extension = ".gif";
-			} else if (path.endsWith(".webp")) {
-				extension = ".webp";
-			} else if (path.endsWith(".jpeg") || path.endsWith(".jpg")) {
-				extension = ".jpg";
+			HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+			connection.setInstanceFollowRedirects(false);
+			connection.setConnectTimeout(5000);
+			connection.setReadTimeout(10000);
+			try {
+				if (connection.getResponseCode() != 200) {
+					throw new IOException("Image server did not return HTTP 200; redirects are not accepted");
+				}
+				try (InputStream input = connection.getInputStream()) {
+					return storeImage(input);
+				}
+			} finally {
+				connection.disconnect();
 			}
-
-			// Generate unique filename
-			String uniqueFilename = UUID.randomUUID().toString() + extension;
-
-			// Create upload directory if it doesn't exist
-			Path uploadPath = Paths.get(uploadDir);
-			if (!Files.exists(uploadPath)) {
-				Files.createDirectories(uploadPath);
-			}
-
-			// Download and save file
-			Path filePath = uploadPath.resolve(uniqueFilename);
-			try (java.io.InputStream in = url.openStream()) {
-				Files.copy(in, filePath, StandardCopyOption.REPLACE_EXISTING);
-			}
-
-			log.info("Image downloaded and saved: {}", filePath);
-			return uniqueFilename;
 
 		} catch (Exception e) {
 			log.error("Error downloading image from URL: {}", imageUrl, e);

@@ -15,6 +15,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @Slf4j
@@ -22,9 +23,6 @@ public class EmailService {
 
 	private final JavaMailSender mailSender;
 	private final TemplateEngine templateEngine;
-
-	@Value("${spring.mail.host:}")
-	private String mailHost;
 
 	@Value("${spring.mail.from:Calculator Collector <noreply@calculatorcollector.com>}")
 	private String fromEmail;
@@ -41,9 +39,19 @@ public class EmailService {
 	private String baseUrl;
 
 	@Autowired
-	public EmailService(JavaMailSender mailSender, TemplateEngine templateEngine) {
-		this.mailSender = mailSender;
+	public EmailService(Optional<JavaMailSender> mailSender, TemplateEngine templateEngine) {
+		this.mailSender = mailSender.orElse(null);
 		this.templateEngine = templateEngine;
+	}
+
+	public boolean isAvailable() {
+		return mailSender != null;
+	}
+
+	private void requireMailSender() {
+		if (!isAvailable()) {
+			throw new IllegalStateException("Email service is not configured");
+		}
 	}
 
 	@PostConstruct
@@ -59,6 +67,7 @@ public class EmailService {
 	}
 
 	public void sendSimpleEmail(String to, String subject, String text) {
+		requireMailSender();
 		try {
 			SimpleMailMessage message = new SimpleMailMessage();
 			message.setFrom(fromEmail);
@@ -74,6 +83,7 @@ public class EmailService {
 	}
 
 	public void sendHtmlEmail(String to, String subject, String templateName, Map<String, Object> variables) {
+		requireMailSender();
 		try {
 			MimeMessage message = mailSender.createMimeMessage();
 			MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

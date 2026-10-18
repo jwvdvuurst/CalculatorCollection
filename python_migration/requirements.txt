@@ -1,0 +1,10 @@
+# Runtime dependencies for the Python migration layer.
+
+# API layer for the migrated Calculator Collection service
+fastapi>=0.115.0
+uvicorn>=0.30.0
+httpx>=0.28.0
+neo4j>=5.26,<6
+argon2-cffi>=23.1,<26
+PyJWT>=2.10,<3
+python-dotenv>=1.0,<2

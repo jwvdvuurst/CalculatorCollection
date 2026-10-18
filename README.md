@@ -80,6 +80,13 @@ mvn spring-boot:run
 
 ### 4. Access the Application
 
+Fresh databases have no default application accounts. To create the first administrator,
+set `app.bootstrap.admin.username`, `app.bootstrap.admin.email`, and the
+`APP_BOOTSTRAP_ADMIN_PASSWORD` environment variable before the first startup. The password
+must contain at least 12 characters (at most 72 UTF-8 bytes). Remove the bootstrap secret
+after setup. Existing accounts are not modified; change any legacy `admin`/`admin` or
+`user`/`user` passwords through the profile page.
+
 - **Web UI**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **API Docs**: http://localhost:8080/api-docs
@@ -140,13 +147,23 @@ http://localhost:8080/api
 
 ### Authentication
 
-All API endpoints (except public calculator browsing) require HTTP Basic Authentication:
+Use `POST /api/auth/login` with a JSON username and password to obtain an access token.
+All other API endpoints require authentication. Use the token for reads and writes:
 
 ```
-Authorization: Basic base64(username:password)
+Authorization: Bearer <accessToken>
 ```
 
 ### API Endpoints Overview
+
+HTTP Basic remains available for reads. Basic writes require CSRF protection; use JWT
+for API mutations. API requests do not use web login sessions. Web forms continue to
+use session authentication and CSRF tokens.
+
+Uploads accept decoded JPEG, PNG, GIF and WebP images up to 10 MiB and 20 million
+pixels by default. Private images and pending proposals are visible only to their
+owner and administrators, including through `/uploads/` URLs. Only administrators
+can publish approved images.
 
 #### Calculators (Public)
 - `GET /api/calculators` - Browse calculators with optional search and manufacturer filter
@@ -394,7 +411,7 @@ java -jar target/CalCol-0.0.1-SNAPSHOT.jar
 ## Security
 
 - **Authentication**: HTTP Basic Authentication for REST APIs
-- **CSRF Protection**: Disabled for `/api/**` endpoints, enabled for web UI
+- **CSRF Protection**: Enabled for web forms and Basic-authenticated API writes; stateless bearer requests and JSON login/registration are exempt
 - **CORS**: Configured for `/api/**` endpoints
 - **Password Storage**: BCrypt password hashing
 - **Session Management**: Spring Security session management
