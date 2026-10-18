@@ -72,7 +72,6 @@ public class SecurityConfig {
 				.requestMatchers("/", "/welcome", "/login", "/error").permitAll()
 				.requestMatchers("/register", "/forgot-password", "/reset-password").permitAll()
 				.requestMatchers("/calculators", "/calculators/**").permitAll()
-				.requestMatchers("/uploads/**").permitAll()
 				.requestMatchers("/h2-console/**").permitAll()
 				.requestMatchers("/share/**").permitAll()
 				.requestMatchers("/admin/**").hasRole("ADMIN")

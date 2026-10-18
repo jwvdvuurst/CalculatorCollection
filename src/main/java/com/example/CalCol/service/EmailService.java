@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -21,7 +22,7 @@ import java.util.Optional;
 @Slf4j
 public class EmailService {
 
-	private final JavaMailSender mailSender;
+	private final ObjectProvider<JavaMailSender> mailSenderProvider;
 	private final TemplateEngine templateEngine;
 
 	@Value("${spring.mail.from:Calculator Collector <noreply@calculatorcollector.com>}")
@@ -107,6 +108,14 @@ public class EmailService {
 			log.error("Failed to send HTML email to: {}", to, e);
 			throw new RuntimeException("Failed to send HTML email", e);
 		}
+	}
+
+	private JavaMailSender getMailSender() {
+		JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
+		if (mailSender == null) {
+			log.debug("Email delivery is disabled because spring.mail.host is not configured");
+		}
+		return mailSender;
 	}
 
 	public void sendCollectionSharedEmail(String to, String sharedBy, String shareTitle, String shareUrl) {

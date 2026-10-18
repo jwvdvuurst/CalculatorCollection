@@ -270,13 +270,13 @@
 			
 			<div th:if="${images != null && !images.isEmpty()}" class="image-grid">
 				<div th:each="image : ${images}" class="image-item">
-					<img th:src="@{'/uploads/' + ${image.imagePath}}" alt="Calculator image" 
+					<img th:src="@{/api/calculators/{calculatorId}/images/{imageId}/data(calculatorId=${calculator.id}, imageId=${image.id})}" alt="Calculator image" 
 						 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'200\' height=\'200\'%3E%3Crect fill=\'%23ddd\' width=\'200\' height=\'200\'/%3E%3Ctext fill=\'%23999\' font-family=\'sans-serif\' font-size=\'14\' dy=\'10.5\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\'%3ENo Image%3C/text%3E%3C/svg%3E';">
 					<div th:if="${image.isProposal && !image.isApproved}" class="status-badge">Pending Approval</div>
 					<sec:authorize="isAuthenticated()">
 						<form th:action="@{/calculators/images/{id}/delete(id=${image.id}, calculatorId=${calculator.id})}" 
 							  method="post" style="display: inline;"
-							  th:if="${image.uploadedBy == username || !image.isApproved}">
+							  th:if="${image.uploadedBy == username || isAdmin}">
 							<button type="submit" class="delete-btn" onclick="return confirm('Delete this image?')">Delete</button>
 						</form>
 					</sec:authorize>

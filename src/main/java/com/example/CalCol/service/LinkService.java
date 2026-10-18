@@ -7,6 +7,7 @@ import com.example.CalCol.repository.CalculatorRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +56,8 @@ public class LinkService {
 	}
 
 	@Transactional
-	public CalculatorLink updateLink(Long linkId, String url, String title, String description, String username) {
+	public CalculatorLink updateLink(Long calculatorId, Long linkId, String url, String title, String description,
+			String username, boolean isAdmin) {
 		Optional<CalculatorLink> linkOpt = linkRepository.findById(linkId);
 		if (linkOpt.isEmpty()) {
 			throw new IllegalArgumentException("Link not found");
@@ -64,6 +66,11 @@ public class LinkService {
 		CalculatorLink link = linkOpt.get();
 		if (!link.getAddedBy().equals(username) && !currentUserService.isAdmin(username)) {
 			throw new org.springframework.security.access.AccessDeniedException("You cannot edit this link");
+		if (!link.getCalculator().getId().equals(calculatorId)) {
+			throw new IllegalArgumentException("Link not found");
+		}
+		if (!isAdmin && !link.getAddedBy().equals(username)) {
+			throw new AccessDeniedException("You do not have permission to update this link");
 		}
 		
 		link.setUrl(url);

@@ -383,22 +383,13 @@ public class CalculatorController {
 
 		String username = authentication.getName();
 		
-		// Get notes from wishlist item before removing
-		java.util.Optional<com.example.CalCol.entity.WishlistItem> itemOpt = 
-			wishlistService.getWishlistItem(username, calculatorId);
-		
-		String notes = itemOpt.map(com.example.CalCol.entity.WishlistItem::getNotes).orElse(null);
-		
-		// Remove from wishlist
-		boolean removed = wishlistService.removeFromWishlist(username, calculatorId);
-		if (!removed) {
+		WishlistService.MoveToCollectionResult result = wishlistService.moveToCollection(username, calculatorId);
+		if (result == WishlistService.MoveToCollectionResult.WISHLIST_ITEM_NOT_FOUND) {
 			redirectAttributes.addFlashAttribute("errorMessage", "Calculator not found in wishlist.");
 			return "redirect:/calculators/wishlist";
 		}
-		
-		// Add to collection with notes
-		boolean added = calculatorService.addToCollection(username, calculatorId, notes);
-		if (added) {
+
+		if (result == WishlistService.MoveToCollectionResult.MOVED) {
 			redirectAttributes.addFlashAttribute("successMessage", "Calculator moved to your collection!");
 		} else {
 			redirectAttributes.addFlashAttribute("errorMessage", 
@@ -758,7 +749,9 @@ public class CalculatorController {
 		}
 
 		String username = authentication.getName();
-		if (imageService.deleteImage(imageId, username)) {
+		boolean isAdmin = authentication.getAuthorities().stream()
+			.anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
+		if (calculatorId != null && imageService.deleteImage(calculatorId, imageId, username, isAdmin)) {
 			redirectAttributes.addFlashAttribute("successMessage", "Image deleted successfully!");
 		} else {
 			redirectAttributes.addFlashAttribute("errorMessage", "Failed to delete image.");

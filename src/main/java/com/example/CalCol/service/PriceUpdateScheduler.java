@@ -20,6 +20,9 @@ public class PriceUpdateScheduler {
 	@Value("${app.price.update.schedule.enabled:true}")
 	private boolean scheduleEnabled;
 
+	@Value("${app.price.update.weekly.enabled:false}")
+	private boolean weeklyScheduleEnabled;
+
 	public PriceUpdateScheduler(PriceService priceService) {
 		this.priceService = priceService;
 	}
@@ -50,20 +53,17 @@ public class PriceUpdateScheduler {
 	 */
 	@Scheduled(cron = "${app.price.update.weekly.cron:0 0 3 * * SUN}")
 	public void updatePricesWeekly() {
-		if (!priceUpdateEnabled || !scheduleEnabled) {
+		if (!priceUpdateEnabled || !weeklyScheduleEnabled) {
 			log.debug("Price update schedule is disabled");
 			return;
 		}
 
-		// Only run if daily updates are disabled
-		if (scheduleEnabled) {
-			log.info("Starting weekly price update");
-			try {
-				int updated = priceService.updateAllPrices();
-				log.info("Weekly price update completed: {} calculators updated", updated);
-			} catch (Exception e) {
-				log.error("Error during weekly price update: {}", e.getMessage(), e);
-			}
+		log.info("Starting weekly price update");
+		try {
+			int updated = priceService.updateAllPrices();
+			log.info("Weekly price update completed: {} calculators updated", updated);
+		} catch (Exception e) {
+			log.error("Error during weekly price update: {}", e.getMessage(), e);
 		}
 	}
 }

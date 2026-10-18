@@ -88,6 +88,8 @@ public class LinkRestController {
 		}
 
 		String username = authentication.getName();
+		boolean isAdmin = authentication.getAuthorities().stream()
+			.anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
 
 		try {
 			if (!linkService.belongsToCalculator(linkId, calculatorId)) {

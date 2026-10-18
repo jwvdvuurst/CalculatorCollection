@@ -80,14 +80,17 @@ public class ImageService {
 	}
 
 	@Transactional
-	public boolean deleteImage(Long imageId, String username) {
+	public boolean deleteImage(Long calculatorId, Long imageId, String username, boolean isAdmin) {
 		Optional<CalculatorImage> imageOpt = imageRepository.findById(imageId);
 		if (imageOpt.isEmpty()) {
 			return false;
 		}
 
 		CalculatorImage image = imageOpt.get();
-		if (!image.getUploadedBy().equals(username)) {
+		if (!image.getCalculator().getId().equals(calculatorId)) {
+			return false;
+		}
+		if (!isAdmin && !image.getUploadedBy().equals(username)) {
 			return false;
 		}
 
