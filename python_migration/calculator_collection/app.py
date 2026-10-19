@@ -52,9 +52,17 @@ class CalculatorCollectionApp:
         return self.service.merge_manufacturers(target_id, source_id, new_name)
 
     def submit_proposal(self, manufacturer_name: str, model: str, source_url: str = "", raw_row_text: str = "",
-                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system"):
+                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system",
+                       created_by_id: int | None = None):
         return self.proposal_service.submit_proposal(
-            manufacturer_name, model, source_url, raw_row_text, sold_from, sold_to, created_by
+            manufacturer_name,
+            model,
+            source_url,
+            raw_row_text,
+            sold_from,
+            sold_to,
+            created_by,
+            created_by_id,
         )
 
     def list_proposals(self):

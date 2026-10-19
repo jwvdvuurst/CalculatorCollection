@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
+from _thread import RLock
 from typing import Iterable
 
 from ..domain import (
@@ -25,6 +26,12 @@ class GraphRepository:
     wishlist_items: dict[str, dict[int, UserCalculatorCollection]] = field(default_factory=dict)
     proposals: dict[int, Proposal] = field(default_factory=dict)
     users: dict[str, UserAccount] = field(default_factory=dict)
+    _user_id_sequence: int = field(default=0, repr=False)
+    _admin_mutation_lock: RLock = field(
+        default_factory=RLock,
+        repr=False,
+        compare=False,
+    )
 
     def close(self) -> None:
         return None
@@ -48,6 +55,25 @@ class GraphRepository:
         self.calculators[calculator.id] = calculator
         return calculator
 
+    def update_calculator(self, calculator: Calculator) -> Calculator | None:
+        if calculator.id is None or calculator.id not in self.calculators:
+            return None
+        old = self.calculators[calculator.id]
+        if calculator.manufacturer is not None:
+            manufacturer = self.manufacturers.get(calculator.manufacturer.id)
+            if manufacturer is None:
+                return None
+            calculator.manufacturer = manufacturer
+        if old.manufacturer is not None:
+            old.manufacturer.calculators = [
+                item for item in old.manufacturer.calculators
+                if item.id != calculator.id
+            ]
+        self.calculators[calculator.id] = calculator
+        if calculator.manufacturer is not None:
+            calculator.manufacturer.calculators.append(calculator)
+        return calculator
+
     def get_all_calculators(self) -> list[Calculator]:
         return list(self.calculators.values())
 
@@ -56,6 +82,21 @@ class GraphRepository:
 
     def get_calculator_by_id(self, calculator_id: int) -> Calculator | None:
         return self.calculators.get(calculator_id)
+
+    def delete_calculator(self, calculator_id: int) -> bool:
+        calculator = self.calculators.pop(calculator_id, None)
+        if calculator is None:
+            return False
+        if calculator.manufacturer is not None:
+            calculator.manufacturer.calculators = [
+                item for item in calculator.manufacturer.calculators
+                if item.id != calculator_id
+            ]
+        for items in self.user_collections.values():
+            items.pop(calculator_id, None)
+        for items in self.wishlist_items.values():
+            items.pop(calculator_id, None)
+        return True
 
     def search_calculators(self, search: str | None, min_price: Decimal | None = None, max_price: Decimal | None = None) -> list[Calculator]:
         query = (search or "").strip().lower()
@@ -207,19 +248,100 @@ class GraphRepository:
     def get_user_by_username(self, username: str) -> UserAccount | None:
         return self.users.get(username)
 
+    def get_user_by_id(self, user_id: int) -> UserAccount | None:
+        return next(
+            (account for account in self.users.values() if account.id == user_id),
+            None,
+        )
+
     def create_user(self, user: UserAccount) -> bool:
-        if (
-            user.username in self.users
-            or user.username in self.user_collections
-            or user.username in self.wishlist_items
-            or any(
-                account.email.casefold() == user.email.casefold()
+        with self._admin_mutation_lock:
+            if (
+                user.username in self.users
+                or user.username in self.user_collections
+                or user.username in self.wishlist_items
+                or any(
+                    account.email.casefold() == user.email.casefold()
+                    for account in self.users.values()
+                )
+            ):
+                return False
+            self._user_id_sequence = max(
+                self._user_id_sequence,
+                max(
+                    (account.id or 0 for account in self.users.values()),
+                    default=0,
+                ),
+            ) + 1
+            user.id = self._user_id_sequence
+            if user.created_at is None:
+                user.created_at = datetime.now(timezone.utc)
+            self.users[user.username] = user
+            return True
+
+    def get_all_users(self) -> list[UserAccount]:
+        return sorted(self.users.values(), key=lambda account: account.id or 0)
+
+    def update_user(self, user: UserAccount) -> bool:
+        with self._admin_mutation_lock:
+            current = next(
+                (
+                    account for account in self.users.values()
+                    if account.id == user.id
+                ),
+                None,
+            )
+            if current is None or any(
+                account.id != user.id
+                and account.email.casefold() == user.email.casefold()
+                for account in self.users.values()
+            ):
+                return False
+            if self._would_remove_last_enabled_admin(
+                current, user.role, user.enabled
+            ):
+                return False
+            current.email = user.email
+            current.role = user.role
+            current.enabled = user.enabled
+            return True
+
+    def delete_user(self, user_id: int) -> bool:
+        with self._admin_mutation_lock:
+            account = next(
+                (
+                    account for account in self.users.values()
+                    if account.id == user_id
+                ),
+                None,
+            )
+            if account is None or self._would_remove_last_enabled_admin(
+                account, "USER", False
+            ):
+                return False
+            del self.users[account.username]
+            self.user_collections.pop(account.username, None)
+            self.wishlist_items.pop(account.username, None)
+            return True
+
+    def _would_remove_last_enabled_admin(
+        self, current: UserAccount, new_role: str, new_enabled: bool
+    ) -> bool:
+        return (
+            current.role == "ADMIN"
+            and current.enabled
+            and (new_role != "ADMIN" or not new_enabled)
+            and sum(
+                account.role == "ADMIN" and account.enabled
                 for account in self.users.values()
             )
-        ):
-            return False
-        self.users[user.username] = user
-        return True
+            <= 1
+        )
+
+    def update_last_login(self, username: str) -> None:
+        account = self.users.get(username)
+        if account is not None:
+            account.last_login = datetime.now(timezone.utc)
 
     def update_wishlist_notes(self, username: str, calculator_id: int, notes: str | None) -> bool:
         username_items = self.wishlist_items.get(username, {})
@@ -229,7 +351,8 @@ class GraphRepository:
         return True
 
     def submit_proposal(self, manufacturer_name: str, model: str, source_url: str = "", raw_row_text: str = "",
-                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system") -> Proposal:
+                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system",
+                       created_by_id: int | None = None) -> Proposal:
         proposal_id = max(self.proposals.keys(), default=0) + 1
         proposal = Proposal(
             id=proposal_id,
@@ -240,6 +363,7 @@ class GraphRepository:
             source_url=source_url,
             raw_row_text=raw_row_text,
             created_by=created_by,
+            created_by_id=created_by_id,
         )
         self.proposals[proposal_id] = proposal
         return proposal
@@ -248,11 +372,61 @@ class GraphRepository:
         return list(self.proposals.values())
 
     def set_proposal_status(self, proposal_id: int, status: str) -> Proposal | None:
-        proposal = self.proposals.get(proposal_id)
-        if proposal is None:
-            return None
-        proposal.status = status
-        return proposal
+        with self._admin_mutation_lock:
+            proposal = self.proposals.get(proposal_id)
+            if proposal is None or proposal.status != "pending":
+                return None
+            if (
+                status == "approved"
+                and proposal.sold_from is not None
+                and proposal.sold_to is not None
+                and proposal.sold_to < proposal.sold_from
+            ):
+                return None
+            proposal.status = status
+            return proposal
+
+    def review_proposal(
+        self, proposal_id: int, status: str, reviewed_by: str
+    ) -> Proposal | None:
+        with self._admin_mutation_lock:
+            proposal = self.proposals.get(proposal_id)
+            if proposal is None or proposal.status != "pending":
+                return None
+            if (
+                status == "approved"
+                and proposal.sold_from is not None
+                and proposal.sold_to is not None
+                and proposal.sold_to < proposal.sold_from
+            ):
+                return None
+            if status == "approved":
+                manufacturer = next(
+                    (
+                        item for item in self.manufacturers.values()
+                        if item.name.casefold()
+                        == proposal.manufacturer_name.casefold()
+                    ),
+                    None,
+                )
+                if manufacturer is None:
+                    manufacturer = self.add_manufacturer(
+                        Manufacturer(name=proposal.manufacturer_name.strip())
+                    )
+                calculator = Calculator(
+                    model=proposal.model,
+                    sold_from=proposal.sold_from,
+                    sold_to=proposal.sold_to,
+                    source_url=proposal.source_url,
+                    raw_row_text=proposal.raw_row_text,
+                    manufacturer=manufacturer,
+                )
+                self.add_calculator(calculator)
+                proposal.created_calculator_id = calculator.id
+            proposal.status = status
+            proposal.reviewed_by = reviewed_by
+            proposal.reviewed_at = datetime.now(timezone.utc)
+            return proposal
 
     def load_catalogue_from_json_file(self, json_path: str | Path) -> int:
         path = Path(json_path)

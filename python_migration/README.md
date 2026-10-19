@@ -62,7 +62,8 @@ the file local and do not commit it.
 
 The API requires a separate JWT signing secret of at least 32 bytes. Keep it
 stable across API restarts and private to the API deployment. Accounts register
-with a username, email, and password; passwords are stored as Argon2id hashes.
+with a username, email, and a password of at least 12 characters; passwords are
+stored as Argon2id hashes.
 Registration always assigns the `USER` role. To provision the first
 administrator, set `CALCOL_ADMIN_USERNAME`, `CALCOL_ADMIN_EMAIL`, and
 `CALCOL_ADMIN_PASSWORD` before starting the API. The administrator password
@@ -75,6 +76,29 @@ Every API endpoint other than `/api/health`, `/api/auth/register`, and
 operations are limited to the authenticated account, and proposal moderation
 requires the `ADMIN` role. The React client keeps access tokens in memory and
 requires a new sign-in after a page reload.
+
+Administrators can create, edit, and delete calculators; rename and merge
+manufacturers; create, update, disable, and delete user accounts; and approve or
+reject calculator proposals. Approval creates a calculator and reuses an
+existing manufacturer name when possible. An administrator cannot disable,
+demote, or delete their own account, and the API prevents removal of the last
+enabled administrator. The React Admin page exposes these operations.
+Access tokens identify accounts by immutable graph user ID; deleting an account
+and reusing its username does not transfer existing tokens or proposal
+ownership. Existing username-subject tokens are rejected after this change,
+requiring users to sign in again. Startup assigns IDs to older graph user nodes
+and backfills proposal ownership only when the current account predates the
+proposal; older proposals without an unambiguous account match remain visible
+to administrators, not regular users.
+
+Admin API routes are under `/api/admin`: calculator CRUD uses
+`/calculators`; manufacturer creation, rename, and merge use `/manufacturers`
+and `/manufacturers/merge`; user management uses `/users`; and proposal review
+uses `PATCH /proposals/{id}`.
+
+This is not yet a complete migration of the Spring admin panel. Labels,
+calculator images and links, enrichment, and bulk import/export workflows are
+not implemented in the Python API/UI.
 
 Generate a suitable signing secret and place the output after
 `CALCOL_JWT_SECRET=` in the root `.env`:

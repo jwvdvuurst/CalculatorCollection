@@ -8,7 +8,8 @@ class ProposalService:
         self.repository = repository
 
     def submit_proposal(self, manufacturer_name: str, model: str, source_url: str = "", raw_row_text: str = "",
-                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system"):
+                       sold_from: int | None = None, sold_to: int | None = None, created_by: str = "system",
+                       created_by_id: int | None = None):
         proposal = self.repository.submit_proposal(
             manufacturer_name=manufacturer_name,
             model=model,
@@ -17,6 +18,7 @@ class ProposalService:
             sold_from=sold_from,
             sold_to=sold_to,
             created_by=created_by,
+            created_by_id=created_by_id,
         )
         return {
             "id": proposal.id,
@@ -26,6 +28,7 @@ class ProposalService:
             "source_url": proposal.source_url,
             "raw_row_text": proposal.raw_row_text,
             "created_by": proposal.created_by,
+            "created_by_id": proposal.created_by_id,
         }
 
     def list_proposals(self):
@@ -38,6 +41,7 @@ class ProposalService:
                 "source_url": proposal.source_url,
                 "raw_row_text": proposal.raw_row_text,
                 "created_by": proposal.created_by,
+                "created_by_id": proposal.created_by_id,
             }
             for proposal in self.repository.list_proposals()
         ]

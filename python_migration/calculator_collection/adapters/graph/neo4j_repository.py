@@ -30,6 +30,8 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         "FOR (n:Manufacturer) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT user_username IF NOT EXISTS "
         "FOR (n:User) REQUIRE n.username IS UNIQUE",
+        "CREATE CONSTRAINT user_id IF NOT EXISTS "
+        "FOR (n:User) REQUIRE n.id IS UNIQUE",
         "CREATE CONSTRAINT user_email IF NOT EXISTS "
         "FOR (n:User) REQUIRE n.email IS UNIQUE",
         "CREATE CONSTRAINT collection_item_key IF NOT EXISTS "
@@ -82,6 +84,8 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                     int(migration["record_count"] or 0),
                 )
         self._synchronize_sequences()
+        self._assign_missing_user_ids()
+        self._backfill_proposal_owners()
 
     def close(self) -> None:
         self._driver.close()
@@ -125,6 +129,55 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         with self._driver.session(database=self._database) as session:
             record = session.run(query, calculator_id=calculator_id).single()
         return self._calculator_from_record(record) if record else None
+
+    def update_calculator(self, calculator: Calculator) -> Calculator | None:
+        if calculator.id is None:
+            return None
+        query = """
+        MATCH (c:Calculator {id: $id})
+        OPTIONAL MATCH (old:Manufacturer)-[old_link:MANUFACTURES]->(c)
+        WITH c, collect(old_link) AS old_links
+        FOREACH (link IN old_links | DELETE link)
+        SET c.model = $model,
+            c.sold_from = $sold_from,
+            c.sold_to = $sold_to,
+            c.source_url = $source_url,
+            c.raw_row_text = $raw_row_text,
+            c.description = $description,
+            c.current_price = $current_price,
+            c.price_currency = $price_currency
+        WITH c
+        OPTIONAL MATCH (m:Manufacturer {id: $manufacturer_id})
+        FOREACH (_ IN CASE WHEN m IS NULL THEN [] ELSE [1] END |
+            MERGE (m)-[:MANUFACTURES]->(c))
+        RETURN c AS calculator, m AS manufacturer
+        """
+        parameters = {
+            "id": calculator.id,
+            "model": calculator.model,
+            "sold_from": calculator.sold_from,
+            "sold_to": calculator.sold_to,
+            "source_url": calculator.source_url,
+            "raw_row_text": calculator.raw_row_text,
+            "description": calculator.description,
+            "current_price": str(calculator.current_price),
+            "price_currency": calculator.price_currency,
+            "manufacturer_id": (
+                calculator.manufacturer.id if calculator.manufacturer else None
+            ),
+        }
+        with self._driver.session(database=self._database) as session:
+            record = session.execute_write(
+                lambda tx: tx.run(query, **parameters).single()
+            )
+        return self._calculator_from_record(record) if record else None
+
+    def delete_calculator(self, calculator_id: int) -> bool:
+        with self._driver.session(database=self._database) as session:
+            record = session.execute_write(
+                lambda tx: self._delete_calculator_tx(tx, calculator_id)
+            )
+        return bool(record and record["deleted"])
 
     def search_calculators(
         self,
@@ -220,7 +273,8 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         query = """
         MERGE (m:Manufacturer {id: $id})
         SET m.name = $name
-        RETURN m AS manufacturer
+        OPTIONAL MATCH (m)-[:MANUFACTURES]->(c:Calculator)
+        RETURN m AS manufacturer, collect(c) AS calculators
         """
         with self._driver.session(database=self._database) as session:
             record = session.run(
@@ -351,28 +405,32 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         query = "MATCH (user:User {username: $username}) RETURN user"
         with self._driver.session(database=self._database) as session:
             record = session.run(query, username=username).single()
-        if record is None:
-            return None
-        properties = self._properties(record["user"])
-        if not properties.get("password_hash"):
-            return None
-        return UserAccount(
-            username=properties["username"],
-            email=properties["email"],
-            password_hash=properties["password_hash"],
-            role=properties.get("role", "USER"),
-            enabled=properties.get("enabled", True),
-        )
+        return self._user_from_node(record["user"]) if record else None
+
+    def get_user_by_id(self, user_id: int) -> UserAccount | None:
+        query = """
+        MATCH (user:User {id: $user_id})
+        WHERE user.password_hash IS NOT NULL
+        RETURN user
+        """
+        with self._driver.session(database=self._database) as session:
+            record = session.run(query, user_id=user_id).single()
+        return self._user_from_node(record["user"]) if record else None
 
     def create_user(self, user: UserAccount) -> bool:
+        if user.id is None:
+            user.id = self._next_id("user")
+        if user.created_at is None:
+            user.created_at = datetime.now(timezone.utc)
         query = """
         CREATE (account:User {
+            id: $id,
             username: $username,
             email: $email,
             password_hash: $password_hash,
             role: $role,
             enabled: $enabled,
-            created_at: datetime()
+            created_at: datetime($created_at)
         })
         RETURN account.username AS username
         """
@@ -381,9 +439,77 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                 record = session.execute_write(
                     lambda tx: tx.run(
                         query,
+                        id=user.id,
                         username=user.username,
                         email=user.email,
                         password_hash=user.password_hash,
+                        role=user.role,
+                        enabled=user.enabled,
+                        created_at=user.created_at.isoformat(),
+                    ).single()
+                )
+        except ConstraintError:
+            return False
+        return record is not None
+
+    def get_all_users(self) -> list[UserAccount]:
+        query = """
+        MATCH (user:User)
+        WHERE user.password_hash IS NOT NULL
+        RETURN user
+        ORDER BY user.id
+        """
+        with self._driver.session(database=self._database) as session:
+            records = list(session.run(query))
+        users = []
+        for record in records:
+            properties = self._properties(record["user"])
+            users.append(
+                UserAccount(
+                    username=properties["username"],
+                    email=properties["email"],
+                    password_hash=properties["password_hash"],
+                    role=properties.get("role", "USER"),
+                    enabled=properties.get("enabled", True),
+                    id=properties.get("id"),
+                    created_at=self._native_datetime(properties.get("created_at")),
+                    last_login=self._native_datetime(properties.get("last_login")),
+                )
+            )
+        return users
+
+    def update_user(self, user: UserAccount) -> bool:
+        if user.id is None:
+            return False
+        query = """
+        MERGE (guard:Sequence {name: 'admin-mutation'})
+        ON CREATE SET guard.value = 0
+        SET guard.value = guard.value + 1
+        WITH guard
+        MATCH (account:User {id: $id})
+        WHERE account.password_hash IS NOT NULL
+        OPTIONAL MATCH (enabled_admin:User)
+        WHERE enabled_admin.role = 'ADMIN' AND enabled_admin.enabled = true
+        WITH account, count(enabled_admin) AS enabled_admin_count,
+             $role AS new_role, $enabled AS new_enabled
+        WHERE NOT (
+            account.role = 'ADMIN'
+            AND account.enabled = true
+            AND (new_role <> 'ADMIN' OR new_enabled = false)
+            AND enabled_admin_count <= 1
+        )
+        SET account.email = $email,
+            account.role = $role,
+            account.enabled = $enabled
+        RETURN account.id AS id
+        """
+        try:
+            with self._driver.session(database=self._database) as session:
+                record = session.execute_write(
+                    lambda tx: tx.run(
+                        query,
+                        id=user.id,
+                        email=user.email,
                         role=user.role,
                         enabled=user.enabled,
                     ).single()
@@ -391,6 +517,22 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         except ConstraintError:
             return False
         return record is not None
+
+    def delete_user(self, user_id: int) -> bool:
+        with self._driver.session(database=self._database) as session:
+            record = session.execute_write(
+                lambda tx: self._delete_user_tx(tx, user_id)
+            )
+        return bool(record and record["deleted"])
+
+    def update_last_login(self, username: str) -> None:
+        query = """
+        MATCH (account:User {username: $username})
+        WHERE account.password_hash IS NOT NULL
+        SET account.last_login = datetime()
+        """
+        with self._driver.session(database=self._database) as session:
+            session.run(query, username=username).consume()
 
     def update_wishlist_notes(
         self, username: str, calculator_id: int, notes: str | None
@@ -408,6 +550,7 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
         sold_from: int | None = None,
         sold_to: int | None = None,
         created_by: str = "system",
+        created_by_id: int | None = None,
     ) -> Proposal:
         proposal_id = self._next_id("proposal")
         query = """
@@ -420,6 +563,7 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
             sold_from: $sold_from,
             sold_to: $sold_to,
             created_by: $created_by,
+            created_by_id: $created_by_id,
             status: 'pending',
             created_at: datetime()
         })
@@ -436,6 +580,7 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                 sold_from=sold_from,
                 sold_to=sold_to,
                 created_by=created_by,
+                created_by_id=created_by_id,
             ).single()
         if record is None:
             raise RuntimeError("Neo4j did not return the saved proposal.")
@@ -449,9 +594,27 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                 for record in session.run(query)
             ]
 
+    def review_proposal(
+        self, proposal_id: int, status: str, reviewed_by: str
+    ) -> Proposal | None:
+        with self._driver.session(database=self._database) as session:
+            record = session.execute_write(
+                lambda tx: self._review_proposal_tx(
+                    tx, proposal_id, status, reviewed_by
+                )
+            )
+        return self._proposal_from_node(record["proposal"]) if record else None
+
     def set_proposal_status(self, proposal_id: int, status: str) -> Proposal | None:
         query = """
         MATCH (p:Proposal {id: $proposal_id})
+        WHERE p.status = 'pending'
+          AND (
+              $status <> 'approved'
+              OR p.sold_from IS NULL
+              OR p.sold_to IS NULL
+              OR p.sold_to >= p.sold_from
+          )
         SET p.status = $status
         RETURN p AS proposal
         """
@@ -556,6 +719,7 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                 ("calculator", "Calculator"),
                 ("manufacturer", "Manufacturer"),
                 ("proposal", "Proposal"),
+                ("user", "User"),
             ):
                 session.run(
                     f"""
@@ -570,6 +734,220 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
                     """,
                     name=sequence_name,
                 ).consume()
+
+    def _assign_missing_user_ids(self) -> None:
+        with self._driver.session(database=self._database) as session:
+            session.execute_write(self._assign_missing_user_ids_tx)
+
+    @staticmethod
+    def _assign_missing_user_ids_tx(tx: Any) -> None:
+        tx.run(
+            """
+            OPTIONAL MATCH (user:User)
+            WITH coalesce(max(user.id), 0) AS maximum
+            MERGE (sequence:Sequence {name: 'user'})
+            ON CREATE SET sequence.value = maximum
+            ON MATCH SET sequence.value = CASE
+                WHEN sequence.value < maximum THEN maximum
+                ELSE sequence.value
+            END
+            """
+        ).consume()
+        users = list(
+            tx.run(
+                """
+                MATCH (user:User)
+                WHERE user.id IS NULL
+                RETURN elementId(user) AS node_id
+                ORDER BY user.username
+                """
+            )
+        )
+        for record in users:
+            tx.run(
+                """
+                MATCH (user:User)
+                WHERE elementId(user) = $node_id AND user.id IS NULL
+                MATCH (sequence:Sequence {name: 'user'})
+                SET sequence.value = sequence.value + 1
+                WITH user, sequence.value AS assigned_id
+                SET user.id = assigned_id
+                """,
+                node_id=record["node_id"],
+            ).consume()
+
+    def _backfill_proposal_owners(self) -> None:
+        query = """
+        MATCH (proposal:Proposal)
+        WHERE proposal.created_by_id IS NULL
+          AND proposal.created_by IS NOT NULL
+          AND proposal.created_at IS NOT NULL
+        MATCH (user:User)
+        WHERE user.password_hash IS NOT NULL
+          AND user.username = proposal.created_by
+          AND user.id IS NOT NULL
+          AND user.created_at IS NOT NULL
+          AND user.created_at <= proposal.created_at
+        SET proposal.created_by_id = user.id
+        """
+        with self._driver.session(database=self._database) as session:
+            session.execute_write(lambda tx: tx.run(query).consume())
+
+    @staticmethod
+    def _delete_calculator_tx(tx: Any, calculator_id: int) -> Any:
+        tx.run(
+            """
+            MATCH (calculator:Calculator {id: $calculator_id})
+            OPTIONAL MATCH (item)-[:FOR_CALCULATOR]->(calculator)
+            WITH collect(item) AS items
+            UNWIND items AS item
+            DETACH DELETE item
+            """,
+            calculator_id=calculator_id,
+        ).consume()
+        return tx.run(
+            """
+            MATCH (calculator:Calculator {id: $calculator_id})
+            DETACH DELETE calculator
+            RETURN count(calculator) AS deleted
+            """,
+            calculator_id=calculator_id,
+        ).single()
+
+    @staticmethod
+    def _delete_user_tx(tx: Any, user_id: int) -> Any:
+        account_record = tx.run(
+            """
+            MERGE (guard:Sequence {name: 'admin-mutation'})
+            ON CREATE SET guard.value = 0
+            SET guard.value = guard.value + 1
+            WITH guard
+            MATCH (account:User {id: $id})
+            WHERE account.password_hash IS NOT NULL
+            OPTIONAL MATCH (enabled_admin:User)
+            WHERE enabled_admin.role = 'ADMIN' AND enabled_admin.enabled = true
+            WITH account, count(enabled_admin) AS enabled_admin_count
+            WHERE account.role <> 'ADMIN'
+                OR account.enabled <> true
+                OR enabled_admin_count > 1
+            RETURN account.id AS id
+            """,
+            id=user_id,
+        ).single()
+        if account_record is None:
+            return None
+
+        tx.run(
+            """
+            MATCH (account:User {id: $id})-[:HAS_COLLECTION_ITEM|HAS_WISHLIST_ITEM]->(item)
+            WITH item
+            DETACH DELETE item
+            """,
+            id=user_id,
+        ).consume()
+        return tx.run(
+            """
+            MATCH (account:User {id: $id})
+            DETACH DELETE account
+            RETURN count(account) AS deleted
+            """,
+            id=user_id,
+        ).single()
+
+    @staticmethod
+    def _review_proposal_tx(
+        tx: Any, proposal_id: int, status: str, reviewed_by: str
+    ) -> Any:
+        proposal_record = tx.run(
+            """
+            MATCH (proposal:Proposal {id: $proposal_id})
+            SET proposal._review_lock = coalesce(proposal._review_lock, 0) + 1
+            WITH proposal
+            WHERE proposal.status = 'pending'
+              AND (
+                  $status <> 'approved'
+                  OR proposal.sold_from IS NULL
+                  OR proposal.sold_to IS NULL
+                  OR proposal.sold_to >= proposal.sold_from
+              )
+            REMOVE proposal._review_lock
+            RETURN proposal
+            """,
+            proposal_id=proposal_id,
+            status=status,
+        ).single()
+        if proposal_record is None:
+            return None
+
+        proposal = dict(proposal_record["proposal"])
+        calculator_id = None
+        if status == "approved":
+            manufacturer_record = tx.run(
+                """
+                MATCH (manufacturer:Manufacturer)
+                WHERE toLower(manufacturer.name) = toLower($name)
+                RETURN manufacturer
+                ORDER BY manufacturer.id
+                LIMIT 1
+                """,
+                name=proposal["manufacturer_name"].strip(),
+            ).single()
+            if manufacturer_record is None:
+                manufacturer_id = Neo4jGraphRepository._next_id_in_tx(
+                    tx, "manufacturer"
+                )
+                manufacturer_record = tx.run(
+                    """
+                    CREATE (manufacturer:Manufacturer {
+                        id: $id,
+                        name: $name
+                    })
+                    RETURN manufacturer
+                    """,
+                    id=manufacturer_id,
+                    name=proposal["manufacturer_name"].strip(),
+                ).single()
+            calculator_id = Neo4jGraphRepository._next_id_in_tx(tx, "calculator")
+            tx.run(
+                """
+                MATCH (manufacturer:Manufacturer {id: $manufacturer_id})
+                CREATE (calculator:Calculator {
+                    id: $calculator_id,
+                    model: $model,
+                    sold_from: $sold_from,
+                    sold_to: $sold_to,
+                    source_url: $source_url,
+                    raw_row_text: $raw_row_text,
+                    description: '',
+                    enriched_data: '{}',
+                    current_price: '0.00',
+                    price_currency: 'EUR'
+                })
+                MERGE (manufacturer)-[:MANUFACTURES]->(calculator)
+                """,
+                manufacturer_id=dict(manufacturer_record["manufacturer"])["id"],
+                calculator_id=calculator_id,
+                model=proposal["model"],
+                sold_from=proposal.get("sold_from"),
+                sold_to=proposal.get("sold_to"),
+                source_url=proposal.get("source_url", ""),
+                raw_row_text=proposal.get("raw_row_text", ""),
+            ).consume()
+
+        return tx.run(
+            """
+            MATCH (proposal:Proposal {id: $proposal_id, status: 'pending'})
+            SET proposal.status = $status,
+                proposal.reviewed_by = $reviewed_by,
+                proposal.reviewed_at = datetime(),
+                proposal.created_calculator_id = $calculator_id
+            RETURN proposal
+            """,
+            proposal_id=proposal_id,
+            status=status,
+            reviewed_by=reviewed_by,
+            calculator_id=calculator_id,
+        ).single()
 
     @staticmethod
     def _seed_catalogue_batch(tx: Any, rows: list[dict[str, Any]]) -> None:
@@ -616,6 +994,21 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
             record = session.execute_write(
                 lambda tx: tx.run(query, name=name).single()
             )
+        if record is None:
+            raise RuntimeError(f"Neo4j failed to allocate an ID for {name}.")
+        return int(record["value"])
+
+    @staticmethod
+    def _next_id_in_tx(tx: Any, name: str) -> int:
+        record = tx.run(
+            """
+            MERGE (sequence:Sequence {name: $name})
+            ON CREATE SET sequence.value = 0
+            SET sequence.value = sequence.value + 1
+            RETURN sequence.value AS value
+            """,
+            name=name,
+        ).single()
         if record is None:
             raise RuntimeError(f"Neo4j failed to allocate an ID for {name}.")
         return int(record["value"])
@@ -792,7 +1185,11 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
             raw_row_text=properties.get("raw_row_text", ""),
             status=properties.get("status", "pending"),
             created_by=properties.get("created_by", "system"),
+            created_by_id=properties.get("created_by_id"),
             created_at=cls._native_datetime(properties.get("created_at")),
+            reviewed_by=properties.get("reviewed_by"),
+            reviewed_at=cls._native_datetime(properties.get("reviewed_at")),
+            created_calculator_id=properties.get("created_calculator_id"),
         )
 
     @classmethod
@@ -811,6 +1208,23 @@ class Neo4jGraphRepository(CalculatorCollectionRepository):
     @staticmethod
     def _properties(node: Any) -> dict[str, Any]:
         return dict(node) if node is not None else {}
+
+    @classmethod
+    def _user_from_node(cls, node: Any) -> UserAccount | None:
+        properties = cls._properties(node)
+        password_hash = properties.get("password_hash")
+        if not password_hash:
+            return None
+        return UserAccount(
+            username=properties["username"],
+            email=properties["email"],
+            password_hash=password_hash,
+            role=properties.get("role", "USER"),
+            enabled=properties.get("enabled", True),
+            id=properties.get("id"),
+            created_at=cls._native_datetime(properties.get("created_at")),
+            last_login=cls._native_datetime(properties.get("last_login")),
+        )
 
     @staticmethod
     def _native_datetime(value: Any) -> datetime | None:

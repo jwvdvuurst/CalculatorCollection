@@ -71,6 +71,9 @@ class UserAccount:
     password_hash: str = field(repr=False)
     role: str = "USER"
     enabled: bool = True
+    id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    last_login: Optional[datetime] = None
 
 
 @dataclass
@@ -84,7 +87,11 @@ class Proposal:
     raw_row_text: str = ""
     status: str = "pending"
     created_by: str = "system"
+    created_by_id: Optional[int] = None
     created_at: Optional[datetime] = None
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    created_calculator_id: Optional[int] = None
 
     def __post_init__(self) -> None:
         if self.created_at is None:

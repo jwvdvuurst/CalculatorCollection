@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 
+import AdminPanel from './AdminPanel';
 import {
     addToCollection,
     addToWishlist,
@@ -25,7 +26,14 @@ import type {
     WishlistItem,
 } from './api';
 
-const pages = ['catalog', 'collection', 'wishlist', 'manufacturers', 'proposals'] as const;
+const pages = [
+    'catalog',
+    'collection',
+    'wishlist',
+    'manufacturers',
+    'proposals',
+    'admin',
+] as const;
 type Page = (typeof pages)[number];
 
 const pageLabels: Record<Page, string> = {
@@ -34,6 +42,7 @@ const pageLabels: Record<Page, string> = {
     wishlist: 'Wishlist',
     manufacturers: 'Manufacturers',
     proposals: 'Proposals',
+    admin: 'Admin',
 };
 
 const emptyFilters: CalculatorFilters = {
@@ -117,6 +126,8 @@ const App = () => {
                     case 'proposals':
                         setProposals(await getProposals(controller.signal));
                         break;
+                    case 'admin':
+                        break;
                 }
             } catch (loadError) {
                 if (!controller.signal.aborted) {
@@ -188,6 +199,7 @@ const App = () => {
     const onLogout = () => {
         setAccessToken(null);
         setAuthUser(null);
+        setPage('catalog');
         setCollection([]);
         setWishlist([]);
         setProposals([]);
@@ -274,7 +286,7 @@ const App = () => {
                             <input
                                 type="password"
                                 autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                                minLength={4}
+                                minLength={authMode === 'register' ? 12 : 1}
                                 required
                                 value={authForm.password}
                                 onChange={(event) =>
@@ -288,7 +300,7 @@ const App = () => {
                                 <input
                                     type="password"
                                     autoComplete="new-password"
-                                    minLength={4}
+                                    minLength={12}
                                     required
                                     value={authForm.confirmPassword}
                                     onChange={(event) =>
@@ -339,7 +351,9 @@ const App = () => {
             </section>
 
             <nav className="tabs" aria-label="Main navigation">
-                {pages.map((item) => (
+                {pages
+                    .filter((item) => item !== 'admin' || authUser.role === 'ADMIN')
+                    .map((item) => (
                     <button
                         key={item}
                         type="button"
@@ -349,7 +363,7 @@ const App = () => {
                     >
                         {pageLabels[item]}
                     </button>
-                ))}
+                    ))}
             </nav>
 
             <section className="content">
@@ -632,7 +646,7 @@ const App = () => {
                                                         onClick={() =>
                                                             void runAction(
                                                                 () => updateProposalStatus(proposal.id, 'approved'),
-                                                                'Proposal approved.',
+                                                                'Proposal approved and calculator created.',
                                                             )
                                                         }
                                                     >
@@ -659,6 +673,10 @@ const App = () => {
                             )}
                         </div>
                     </div>
+                )}
+
+                {page === 'admin' && authUser.role === 'ADMIN' && (
+                    <AdminPanel currentUsername={authUser.username} />
                 )}
             </section>
 

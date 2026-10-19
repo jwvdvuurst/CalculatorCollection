@@ -32,6 +32,33 @@ export interface Proposal {
     created_by: string;
 }
 
+export interface AdminUser {
+    id: number;
+    username: string;
+    email: string;
+    role: 'USER' | 'ADMIN';
+    enabled: boolean;
+    created_at: string | null;
+    last_login: string | null;
+}
+
+export interface CalculatorAdminInput {
+    model: string;
+    manufacturer_id: number | null;
+    sold_from: number | null;
+    sold_to: number | null;
+    source_url: string;
+    raw_row_text: string;
+    description: string;
+    current_price: string;
+    price_currency: string;
+}
+
+export interface AdminCalculator extends CalculatorAdminInput {
+    id: number;
+    manufacturer: string | null;
+}
+
 export interface AuthUser {
     username: string;
     email: string;
@@ -132,6 +159,61 @@ const post = <T,>(path: string, payload: unknown) =>
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
     });
+
+const put = <T,>(path: string, payload: unknown) =>
+    request<T>(path, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+    });
+
+const remove = (path: string) => request<void>(path, { method: 'DELETE' });
+
+export const getAdminUsers = () => request<AdminUser[]>('/admin/users');
+export const getAdminCalculators = (search = '') =>
+    request<AdminCalculator[]>('/admin/calculators', {}, new URLSearchParams(
+        search.trim() ? { search: search.trim() } : {},
+    ));
+
+export const createAdminUser = (payload: {
+    username: string;
+    email: string;
+    password: string;
+    role: 'USER' | 'ADMIN';
+    enabled: boolean;
+}) => post<AdminUser>('/admin/users', payload);
+
+export const updateAdminUser = (
+    id: number,
+    payload: Pick<AdminUser, 'email' | 'role' | 'enabled'>,
+) => put<AdminUser>(`/admin/users/${id}`, payload);
+
+export const deleteAdminUser = (id: number) => remove(`/admin/users/${id}`);
+
+export const createAdminCalculator = (payload: CalculatorAdminInput) =>
+    post<AdminCalculator>('/admin/calculators', payload);
+
+export const updateAdminCalculator = (id: number, payload: CalculatorAdminInput) =>
+    put<AdminCalculator>(`/admin/calculators/${id}`, payload);
+
+export const deleteAdminCalculator = (id: number) =>
+    remove(`/admin/calculators/${id}`);
+
+export const updateAdminManufacturer = (id: number, name: string) =>
+    put<Pick<Manufacturer, 'id' | 'name'>>(`/admin/manufacturers/${id}`, { name });
+
+export const createAdminManufacturer = (name: string) =>
+    post<Pick<Manufacturer, 'id' | 'name'>>('/admin/manufacturers', { name });
+
+export const mergeAdminManufacturers = (
+    target_id: number,
+    source_id: number,
+    new_name: string | null,
+) => post<{ merged: boolean }>('/admin/manufacturers/merge', {
+    target_id,
+    source_id,
+    new_name,
+});
 
 export const login = (username: string, password: string) =>
     post<AuthResponse>('/auth/login', { username, password });

@@ -99,6 +99,68 @@ class Neo4jRepositoryTests(unittest.TestCase):
         self.assertEqual([len(batch) for batch in batch_writes], [500, 1])
         self.assertEqual(batch_writes[0][0]["manufacturer_name"], "Casio")
 
+    def test_user_lookup_uses_stable_graph_id(self):
+        session = FakeSession(
+            [
+                {
+                    "user": {
+                        "id": 17,
+                        "username": "renamed-or-reused",
+                        "email": "person@example.test",
+                        "password_hash": "argon2-hash",
+                        "role": "USER",
+                        "enabled": True,
+                    }
+                }
+            ]
+        )
+        repository = Neo4jGraphRepository(FakeDriver(session))
+
+        account = repository.get_user_by_id(17)
+
+        self.assertEqual(account.id, 17)
+        self.assertEqual(account.username, "renamed-or-reused")
+        self.assertIn("{id: $user_id}", session.calls[0][0])
+        self.assertEqual(session.calls[0][1], {"user_id": 17})
+
+    def test_startup_migrations_assign_missing_ids_and_backfill_safely(self):
+        session = FakeSession(
+            [{"node_id": "user-node-1"}, {"node_id": "user-node-2"}]
+        )
+        repository = Neo4jGraphRepository(FakeDriver(session))
+
+        repository._assign_missing_user_ids()
+        repository._backfill_proposal_owners()
+
+        sequence_sync_query = session.calls[0][0]
+        self.assertIn("coalesce(max(user.id), 0)", sequence_sync_query)
+        missing_users_query = session.calls[1][0]
+        self.assertIn("WHERE user.id IS NULL", missing_users_query)
+        self.assertIn("ORDER BY user.username", missing_users_query)
+        assignment_calls = session.calls[2:4]
+        self.assertEqual(
+            [parameters["node_id"] for _, parameters in assignment_calls],
+            ["user-node-1", "user-node-2"],
+        )
+        for assign_query, _ in assignment_calls:
+            self.assertIn("sequence.value = sequence.value + 1", assign_query)
+            self.assertIn("elementId(user) = $node_id", assign_query)
+        owner_query = session.calls[4][0]
+        self.assertIn("user.created_at <= proposal.created_at", owner_query)
+        self.assertIn("proposal.created_by_id = user.id", owner_query)
+
+    def test_proposal_approval_requires_a_valid_sales_period(self):
+        session = FakeSession()
+
+        result = Neo4jGraphRepository._review_proposal_tx(
+            session, proposal_id=11, status="approved", reviewed_by="admin"
+        )
+
+        self.assertIsNone(result)
+        query, parameters = session.calls[0]
+        self.assertIn("proposal.sold_to >= proposal.sold_from", query)
+        self.assertEqual(parameters, {"proposal_id": 11, "status": "approved"})
+
     def test_neo4j_password_is_required(self):
         with patch.dict("os.environ", {}, clear=True):
             with self.assertRaisesRegex(RuntimeError, "CALCOL_NEO4J_PASSWORD"):
